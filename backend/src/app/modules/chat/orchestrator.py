@@ -27,6 +27,7 @@ from langgraph.prebuilt import create_react_agent
 
 from app.core.constants import Role
 from app.core.llm import build_chat_llm
+from app.modules.audit_log import service as audit_log_service
 from app.modules.books import service as books_service
 from app.modules.books.schemas import BookSort
 from app.modules.chat.guardrails import GuardrailBlock, check_input, check_output
@@ -765,6 +766,7 @@ Your job:
 - When a tool response includes a total_count field, always report that number as the actual total — never count the items in the sample and report that as the total.
 - Resolve pronouns ("which one", "those", "it") from prior conversation turns before calling a tool.
 - Only answer library-related questions. For anything else say: "I can only help with library-related topics."
+- Financial actions (paying fines, purchasing membership plans, or modifying policy caps) are strictly non-executable by AI. If a user asks to pay a fine or upgrade a plan, provide clear information and direct them to the explicit consent UI flow (e.g. Settle Fine dropdown on Guardian dashboard or Payment page). Never attempt to initiate payment checkouts or create payment orders directly.
 - When the user asks to book a seat, ALWAYS call get_seat_availability first to get available seat labels and today's date, then call book_seat with a real seat label from that response.
 - When the user asks to reserve a book by title, ALWAYS call get_books first to get the book_id, then call reserve_book with that id.
 - When the user asks to register for an event by name, ALWAYS call get_upcoming_events first to get the event_id, then call register_for_event.
@@ -829,6 +831,27 @@ async def run_chat(
         final: str = result["messages"][-1].content
         # Output guardrail — redact PII, block harmful responses
         final = check_output(final)
+
+        # Audit telemetry: record tool executions
+        tool_names = [
+            getattr(m, "name", "tool")
+            for m in result.get("messages", [])
+            if hasattr(m, "type") and m.type == "tool"
+        ]
+        if tool_names and member_id:
+            try:
+                await audit_log_service.record(
+                    actor_id=member_id,
+                    action="CHAT_TOOL_EXECUTED",
+                    metadata={
+                        "member_id": member_id,
+                        "user_name": user_name,
+                        "role": role,
+                        "tools_called": tool_names,
+                    },
+                )
+            except Exception as audit_exc:
+                logger.error("Failed to record CHAT_TOOL_EXECUTED audit log: %s", audit_exc)
 
         # Anti-hallucination: if the LLM answered a book/event/data question
         # without calling any tool, force it to use the tool instead.
