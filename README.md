@@ -1,12 +1,12 @@
-# MAY2026 Team 041 (Consolidated README)
+# Community Library Management Platform
 
-This is a **single-file, shareable README** for the MAY2026 Team 041 project. You can send this file independently without requiring access to the repository structure.
+This is the primary documentation for the Community Library Management Platform.
 
 ---
 
 ## 1) Project Summary
 
-**MAY2026 Team 041** is a community library management platform with a FastAPI backend and React frontend.
+**Community Library Management Platform** is a full-featured community library management solution built with a FastAPI backend and React frontend.
 
 It supports:
 - Role-based login and dashboards (Admin, Manager, Librarian, Member, Guardian, IT Head)
@@ -107,7 +107,7 @@ provider is unreachable.
 
 ```mermaid
 flowchart TD
-    Root["MAY2026-Team-041/"]
+    Root["Project-Root/"]
     Root --> Backend["backend/"]
     Root --> Frontend["frontend/"]
     Root --> Assets["assets/"]

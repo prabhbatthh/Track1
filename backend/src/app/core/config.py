@@ -9,7 +9,7 @@ MIN_JWT_SECRET_LENGTH = 32
 
 
 class Settings(BaseSettings):
-    app_name: str = "MAY2026 Team 041 API"
+    app_name: str = "Community Library Platform API"
     app_env: str = "development"
     api_prefix: str = "/api/v1"
     # Apply pending migrations at startup so a freshly pulled branch just runs. Prisma's

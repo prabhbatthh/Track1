@@ -213,7 +213,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     }.get(settings.llm_mode.lower(), settings.llm_mode)
     print(f"""
 ╔══════════════════════════════════════════════════════╗
-║              MAY2026 Team 041 — API                  ║
+║         Community Library Platform — API            ║
 ╠══════════════════════════════════════════════════════╣
 ║  DB   : {settings.database_url.split("@")[-1]:<44}║
 ║  LLM  : {llm_detail:<44}║

@@ -1,7 +1,7 @@
 [project]
-name = "may2026-team-041-backend"
+name = "community-library-platform-backend"
 version = "0.1.0"
-description = "FastAPI backend for MAY2026 Team 041"
+description = "FastAPI backend for Community Library Management Platform"
 readme = "../README.md"
 requires-python = ">=3.12"
 dependencies = [
