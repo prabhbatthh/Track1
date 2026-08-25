@@ -35,6 +35,7 @@ from app.modules.coupons.router import router as coupons_router
 from app.modules.events.router import router as events_router
 from app.modules.guardian.router import router as guardian_router
 from app.modules.guardian.service import send_monthly_reading_digests
+from app.modules.guardian_autopay.router import router as guardian_autopay_router
 from app.modules.it_head.router import router as it_head_router
 from app.modules.leaderboard.router import router as leaderboard_router
 from app.modules.library_reviews.router import router as library_reviews_router
@@ -293,6 +294,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(book_records_router, prefix=settings.api_prefix)
     app.include_router(payments_router, prefix=settings.api_prefix)
     app.include_router(guardian_router, prefix=settings.api_prefix)
+    app.include_router(guardian_autopay_router, prefix=settings.api_prefix)
     app.include_router(manager_router, prefix=settings.api_prefix)
     app.include_router(reservations_router, prefix=settings.api_prefix)
     app.include_router(recommendations_router, prefix=settings.api_prefix)

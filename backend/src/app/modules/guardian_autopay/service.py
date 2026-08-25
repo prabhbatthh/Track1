@@ -8,6 +8,8 @@ from app.db.prisma import prisma
 from app.modules.audit_log import service as audit_log_service
 from app.modules.guardian import service as guardian_service
 from app.modules.guardian_autopay.schemas import (
+    AutopayApproveRequest,
+    AutopayApproveResponse,
     AutopayDecisionResponse,
     AutopayEvaluateRequest,
     AutopayPolicyCreate,
@@ -275,3 +277,143 @@ async def _record_eval_audit(
         )
     except Exception as exc:
         logger.error("Failed to record guardian autopay audit log: %s", exc)
+
+
+async def approve_and_create_autopay_order(
+    guardian_id: str, payload: AutopayApproveRequest
+) -> AutopayApproveResponse:
+    """Explicit Guardian Consent Gate & Bounded Razorpay Order Creation.
+
+    1. Authorization: Verifies guardian is linked to child.
+    2. Authoritative Database Fetch: Calculates fine amount strictly from Loan record in PostgreSQL.
+    3. Server-Side Policy Re-Evaluation: Re-evaluates evaluate_autopay() before order creation.
+    4. Razorpay Bounded Order Creation: Creates order via payments_service._get_client().
+    5. Audit Logging: Records APPROVAL_REQUESTED, APPROVED, ORDER_CREATED (or REJECTED).
+    """
+    from app.core.config import get_settings
+    from app.modules.loans.constants import FINE_PER_DAY
+    from app.modules.payments import service as payments_service
+    from app.modules.guardian_autopay.schemas import AutopayApproveResponse
+
+    # 1. Authorization & Link check
+    await guardian_service._find_child_or_403(guardian_id, payload.member_id)
+
+    # 2. Fetch authoritative database record
+    loan = await prisma.loan.find_unique(
+        where={"id": payload.charge_id},
+        include={"book": True, "member": True},
+    )
+    if loan is None or loan.memberId != payload.member_id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Fine charge not found for this member",
+        )
+
+    if loan.finePaid:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fine charge has already been paid",
+        )
+
+    # Calculate authoritative amount strictly from server DB
+    now = datetime.now(UTC)
+    end = loan.returnedAt or now
+    days_late = max(0, (end.date() - loan.dueDate.date()).days)
+    authoritative_amount = days_late * FINE_PER_DAY
+
+    if authoritative_amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fine amount is currently owed on this loan",
+        )
+
+    # Audit: Approval requested
+    try:
+        await audit_log_service.record(
+            actor_id=guardian_id,
+            action="GUARDIAN_AUTOPAY_APPROVAL_REQUESTED",
+            metadata={
+                "guardian_id": guardian_id,
+                "member_id": payload.member_id,
+                "charge_id": payload.charge_id,
+                "amount": authoritative_amount,
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record GUARDIAN_AUTOPAY_APPROVAL_REQUESTED audit: %s", exc)
+
+    # 3. Server-Side Policy Re-Evaluation
+    eval_req = AutopayEvaluateRequest(
+        guardian_id=guardian_id,
+        child_id=payload.member_id,
+        charge_type="fine",
+        amount=authoritative_amount,
+        charge_id=loan.id,
+    )
+    decision = await evaluate_autopay(eval_req)
+
+    if not decision.allowed:
+        try:
+            await audit_log_service.record(
+                actor_id=guardian_id,
+                action="GUARDIAN_AUTOPAY_REJECTED",
+                metadata={
+                    "guardian_id": guardian_id,
+                    "member_id": payload.member_id,
+                    "charge_id": payload.charge_id,
+                    "amount": authoritative_amount,
+                    "reason": decision.reason,
+                },
+            )
+        except Exception as exc:
+            logger.error("Failed to record GUARDIAN_AUTOPAY_REJECTED audit: %s", exc)
+
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Auto-Pay approval rejected: {decision.reason}",
+        )
+
+    # 4. Create Bounded Razorpay Order
+    client = payments_service._get_client()
+    settings = get_settings()
+
+    order = client.order.create({
+        "amount": authoritative_amount * 100,  # paise
+        "currency": "INR",
+        "notes": {
+            "guardian_id": guardian_id,
+            "member_id": payload.member_id,
+            "charge_id": payload.charge_id,
+            "source": "guardian_autopay",
+            "feature": "feature_3",
+        },
+    })
+
+    # Audit: Order Created
+    try:
+        await audit_log_service.record(
+            actor_id=guardian_id,
+            action="GUARDIAN_AUTOPAY_ORDER_CREATED",
+            metadata={
+                "guardian_id": guardian_id,
+                "member_id": payload.member_id,
+                "charge_id": payload.charge_id,
+                "razorpay_order_id": order["id"],
+                "amount": authoritative_amount,
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record GUARDIAN_AUTOPAY_ORDER_CREATED audit: %s", exc)
+
+    label = f"Auto-Pay Fine Settlement: {loan.book.title}"
+
+    return AutopayApproveResponse(
+        razorpay_order_id=order["id"],
+        amount=authoritative_amount,
+        currency="INR",
+        key_id=settings.razorpay_key_id,
+        member_id=payload.member_id,
+        charge_id=payload.charge_id,
+        label=label,
+    )
+

@@ -1,5 +1,5 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class AutopayPolicyCreate(BaseModel):
@@ -40,3 +40,21 @@ class AutopayDecisionResponse(BaseModel):
     transaction_cap: Optional[int] = Field(None, description="Guardian's per-transaction limit")
     monthly_cap: Optional[int] = Field(None, description="Guardian's monthly limit")
     monthly_spent: Optional[int] = Field(None, description="Current monthly spending total")
+
+
+class AutopayApproveRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    member_id: str = Field(..., description="UUID of the linked child account")
+    charge_id: str = Field(..., description="UUID of the unpaid loan/fine charge")
+
+
+class AutopayApproveResponse(BaseModel):
+    razorpay_order_id: str = Field(..., description="Server-created Razorpay order ID")
+    amount: int = Field(..., description="Authoritative charge amount in INR")
+    currency: str = Field("INR", description="Currency code")
+    key_id: str = Field(..., description="Razorpay public key ID")
+    member_id: str = Field(..., description="UUID of child account")
+    charge_id: str = Field(..., description="UUID of charge/loan record")
+    label: str = Field(..., description="Display label for fine settlement")
+
