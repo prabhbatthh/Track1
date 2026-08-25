@@ -8,6 +8,7 @@ from prisma.models import User
 
 from app.core.config import get_settings
 from app.db.prisma import prisma
+from app.modules.audit_log import service as audit_log_service
 from app.modules.coupons import service as coupons_service
 from app.modules.loans import service as loans_service
 from app.modules.notifications import service as notifications_service
@@ -190,6 +191,20 @@ async def verify_and_record_razorpay_payment(
                 f"Payment of ₹{amount} received for {label}.",
                 client=tx,
             )
+            if notes.get("source") == "ai_upsell":
+                await audit_log_service.record(
+                    actor_id=user.id,
+                    action="UPSELL_VERIFIED",
+                    metadata={
+                        "user_id": user.id,
+                        "recommended_plan_id": notes.get("plan_id") or notes.get("plan_months"),
+                        "razorpay_payment_id": payload.razorpay_payment_id,
+                        "razorpay_order_id": payload.razorpay_order_id,
+                        "amount": amount,
+                        "source": "ai_upsell",
+                    },
+                    client=tx,
+                )
     except UniqueViolationError:
         # Lost a race against a concurrent retry of the same verify call — the other
         # request already recorded this payment between our pre-check above and this

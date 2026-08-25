@@ -3,83 +3,110 @@ export interface CozyReadingNookArtProps {
 }
 
 /**
- * Cozy reading nook illustration (armchair, warm floor lamp, side table with book & mug),
+ * Community Library & Bookshelves Illustration (library bookshelves, study desk, open book & lamp),
  * for the Member sidebar promo card ("Expand Your Knowledge").
  *
- * Built with CSS design tokens so it recolors in dark mode.
+ * Built with CSS design tokens so it recolors dynamically in dark mode.
  */
 export function CozyReadingNookArt({ className }: CozyReadingNookArtProps) {
   return (
     <svg viewBox="0 0 200 140" aria-hidden="true" focusable="false" className={className}>
       <defs>
-        {/* Warm light cone gradient */}
-        <linearGradient id="lamp-light-cone" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="var(--color-warning)" stopOpacity="0.25" />
-          <stop offset="100%" stopColor="var(--color-warning)" stopOpacity="0.01" />
+        {/* Soft warm lamp light cone */}
+        <linearGradient id="library-lamp-glow" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--color-warning)" stopOpacity="0.35" />
+          <stop offset="100%" stopColor="var(--color-warning)" stopOpacity="0.02" />
+        </linearGradient>
+
+        <linearGradient id="wood-shelf-grad" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stopColor="var(--color-primary)" stopOpacity="0.8" />
+          <stop offset="100%" stopColor="var(--color-primary-hover)" stopOpacity="0.9" />
         </linearGradient>
       </defs>
 
-      {/* Grounding shadow */}
-      <ellipse cx="100" cy="126" rx="82" ry="7" fill="var(--color-foreground)" opacity="0.07" />
+      {/* Floor grounding shadow */}
+      <ellipse cx="100" cy="128" rx="85" ry="6" fill="var(--color-foreground)" opacity="0.08" />
 
-      {/* Floor Lamp Light Cone */}
-      <polygon points="42,42 10,126 130,126" fill="url(#lamp-light-cone)" />
-
-      {/* Floor Lamp (Left) */}
+      {/* Library Bookshelf Frame (Background) */}
       <g>
-        {/* Base */}
-        <ellipse cx="42" cy="124" rx="14" ry="3" fill="var(--color-foreground)" opacity="0.3" />
-        {/* Pole */}
-        <path d="M42 124 L42 42" stroke="var(--color-muted-foreground)" strokeWidth="3" strokeLinecap="round" />
-        {/* Lamp Shade */}
-        <path d="M30 42 L54 42 L48 24 L36 24 Z" fill="var(--color-warning)" />
-        {/* Lamp Top Accent */}
-        <circle cx="42" cy="22" r="3" fill="var(--color-warning-foreground)" opacity="0.7" />
-        {/* Bulb Glow */}
-        <ellipse cx="42" cy="42" rx="10" ry="3" fill="var(--color-warning)" opacity="0.6" />
+        {/* Outer Wooden Bookcase Shell */}
+        <rect x="25" y="15" width="150" height="92" rx="4" fill="url(#wood-shelf-grad)" />
+        <rect x="29" y="19" width="142" height="84" rx="2" fill="var(--color-surface)" opacity="0.95" />
+
+        {/* Shelf Divider 1 (Top) */}
+        <rect x="29" y="48" width="142" height="5" fill="var(--color-border)" />
+
+        {/* Shelf Divider 2 (Middle) */}
+        <rect x="29" y="78" width="142" height="5" fill="var(--color-border)" />
+
+        {/* TOP SHELF BOOKS (Row 1) */}
+        <g>
+          <rect x="35" y="24" width="8" height="24" rx="1" fill="var(--color-primary)" />
+          <rect x="44" y="22" width="10" height="26" rx="1" fill="var(--color-warning)" />
+          <rect x="55" y="26" width="7" height="22" rx="1" fill="var(--color-info)" />
+          <rect x="63" y="23" width="9" height="25" rx="1" fill="var(--color-success)" />
+          <rect x="73" y="25" width="6" height="23" rx="1" fill="var(--color-danger)" />
+
+          {/* Leaning books on top shelf */}
+          <rect x="85" y="24" width="7" height="24" rx="1" fill="var(--color-primary)" transform="rotate(12 85 48)" />
+          <rect x="94" y="24" width="8" height="24" rx="1" fill="var(--color-warning)" transform="rotate(14 94 48)" />
+
+          <rect x="120" y="23" width="11" height="25" rx="1" fill="var(--color-info)" />
+          <rect x="132" y="25" width="7" height="23" rx="1" fill="var(--color-primary)" />
+          <rect x="140" y="22" width="12" height="26" rx="1" fill="var(--color-success)" />
+          <rect x="153" y="24" width="9" height="24" rx="1" fill="var(--color-warning)" />
+        </g>
+
+        {/* MIDDLE SHELF BOOKS (Row 2) */}
+        <g>
+          <rect x="34" y="54" width="11" height="24" rx="1" fill="var(--color-success)" />
+          <rect x="46" y="56" width="7" height="22" rx="1" fill="var(--color-danger)" />
+          <rect x="54" y="53" width="9" height="25" rx="1" fill="var(--color-primary)" />
+
+          {/* Book Stack on middle shelf */}
+          <rect x="68" y="70" width="30" height="8" rx="1" fill="var(--color-info)" />
+          <rect x="71" y="62" width="25" height="7" rx="1" fill="var(--color-warning)" />
+          <rect x="73" y="55" width="22" height="6" rx="1" fill="var(--color-success)" />
+
+          <rect x="110" y="54" width="8" height="24" rx="1" fill="var(--color-primary)" />
+          <rect x="119" y="52" width="10" height="26" rx="1" fill="var(--color-danger)" />
+          <rect x="130" y="55" width="8" height="23" rx="1" fill="var(--color-info)" />
+          <rect x="139" y="53" width="9" height="25" rx="1" fill="var(--color-warning)" />
+          <rect x="149" y="54" width="12" height="24" rx="1" fill="var(--color-primary)" />
+        </g>
       </g>
 
-      {/* Armchair (Center-Left) */}
+      {/* Library Study Desk (Foreground) */}
       <g>
-        {/* Chair Legs */}
-        <line x1="62" y1="112" x2="56" y2="124" stroke="var(--color-foreground)" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
-        <line x1="118" y1="112" x2="124" y2="124" stroke="var(--color-foreground)" strokeWidth="3" strokeLinecap="round" opacity="0.6" />
+        {/* Desk Surface */}
+        <rect x="15" y="102" width="170" height="10" rx="3" fill="var(--color-primary)" />
+        {/* Desk Edge Accent */}
+        <rect x="15" y="110" width="170" height="3" fill="var(--color-primary-hover)" />
 
-        {/* Chair Backrest */}
-        <rect x="64" y="52" width="52" height="54" rx="12" fill="var(--color-primary)" />
+        {/* Desk Legs */}
+        <rect x="25" y="113" width="7" height="15" fill="var(--color-primary-hover)" />
+        <rect x="168" y="113" width="7" height="15" fill="var(--color-primary-hover)" />
 
-        {/* Left Armrest */}
-        <rect x="52" y="76" width="18" height="38" rx="8" fill="var(--color-primary-hover)" />
+        {/* Open Book on Desk (Center) */}
+        <path d="M72 102 C85 96, 96 99, 100 102 C104 99, 115 96, 128 102 L125 106 C114 101, 104 103, 100 105 C96 103, 86 101, 75 106 Z" fill="var(--color-surface)" stroke="var(--color-border)" strokeWidth="1" />
+        {/* Open Book Spine */}
+        <line x1="100" y1="102" x2="100" y2="105" stroke="var(--color-primary)" strokeWidth="1.5" />
 
-        {/* Right Armrest */}
-        <rect x="110" y="76" width="18" height="38" rx="8" fill="var(--color-primary-hover)" />
+        {/* Stack of Books on Left Desk */}
+        <rect x="32" y="97" width="28" height="5" rx="1" fill="var(--color-info)" />
+        <rect x="34" y="92" width="24" height="4" rx="1" fill="var(--color-warning)" />
+        <rect x="36" y="87" width="20" height="4" rx="1" fill="var(--color-danger)" />
 
-        {/* Main Seat Cushion */}
-        <rect x="64" y="86" width="52" height="24" rx="8" fill="var(--color-primary)" stroke="var(--color-surface)" strokeWidth="1.5" />
+        {/* Library Desk Lamp Glow */}
+        <polygon points="152,72 125,102 175,102" fill="url(#library-lamp-glow)" />
 
-        {/* Throw Pillow */}
-        <rect x="92" y="72" width="20" height="20" rx="4" fill="var(--color-info)" transform="rotate(-10 102 82)" />
-      </g>
-
-      {/* Small Side Table & Mug (Right) */}
-      <g>
-        {/* Table Leg */}
-        <line x1="162" y1="92" x2="162" y2="124" stroke="var(--color-foreground)" strokeWidth="2.5" opacity="0.5" />
-        <ellipse cx="162" cy="124" rx="10" ry="2.5" fill="var(--color-foreground)" opacity="0.2" />
-
-        {/* Table Top */}
-        <ellipse cx="162" cy="92" rx="22" ry="6" fill="var(--color-surface)" stroke="var(--color-border)" strokeWidth="2" />
-
-        {/* Open Book on Table */}
-        <path d="M148 90 Q155 86, 162 89 Q169 86, 176 90 L174 94 Q169 90, 162 93 Q155 90, 150 94 Z" fill="var(--color-primary)" opacity="0.9" />
-
-        {/* Warm Coffee/Tea Mug */}
-        <rect x="156" y="78" width="10" height="11" rx="2" fill="var(--color-warning)" />
-        <path d="M166 80 C169 80, 169 87, 166 87" stroke="var(--color-warning)" strokeWidth="1.5" fill="none" />
-
-        {/* Steam Lines */}
-        <path d="M159 74 C158 71, 160 69, 159 66" stroke="var(--color-muted-foreground)" strokeWidth="1.2" fill="none" opacity="0.5" strokeLinecap="round" />
-        <path d="M163 74 C162 71, 164 69, 163 66" stroke="var(--color-muted-foreground)" strokeWidth="1.2" fill="none" opacity="0.5" strokeLinecap="round" />
+        {/* Library Desk Lamp (Right) */}
+        <g>
+          <ellipse cx="152" cy="102" rx="7" ry="2" fill="var(--color-foreground)" opacity="0.4" />
+          <path d="M152 102 Q158 85 152 72" stroke="var(--color-muted-foreground)" strokeWidth="2.5" fill="none" strokeLinecap="round" />
+          {/* Lamp Shade */}
+          <path d="M142 72 L162 72 L157 62 L147 62 Z" fill="var(--color-warning)" />
+        </g>
       </g>
     </svg>
   );

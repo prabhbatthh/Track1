@@ -684,6 +684,40 @@ async def send_loan_reminder(loan_id: str) -> str:
         return _tool_error("Could not send reminder", exc)
 
 
+@tool
+async def evaluate_membership_upsell() -> str:
+    """Evaluate whether the current member is eligible for a membership plan upgrade based on their usage history and savings policy.
+
+    Use this tool when a user asks questions like:
+    - 'Should I upgrade my membership?'
+    - 'Would a longer membership be useful for me?'
+    - 'How can I save money on my membership?'
+    - 'Is there an upgrade recommendation for me?'
+    """
+    from app.modules.agent_upsell.schemas import UpsellEvaluateRequest
+    from app.modules.agent_upsell.service import evaluate_upsell
+
+    class _FakeUser:
+        id = _member_id()
+
+    try:
+        current_plan_id = _current().get("plan_id") or "1m"
+        result = await evaluate_upsell(
+            UpsellEvaluateRequest(current_plan_id=current_plan_id),
+            _FakeUser(),
+        )
+        if not result.eligible or not result.recommended_plan:
+            return f"No upgrade recommendation at this time. {result.reason}"
+
+        return (
+            f"AI Recommendation: Upgrade from {result.current_plan.name} to {result.recommended_plan.name} "
+            f"to save {result.savings_percent}%! Explanation: {result.reason} "
+            f"To complete this upgrade, please proceed to the checkout page at /payment."
+        )
+    except Exception as exc:
+        return _tool_error("Could not evaluate membership upgrade", exc)
+
+
 # ── Tools list ────────────────────────────────────────────────────────────────
 TOOLS = [
     get_upcoming_events,
@@ -700,6 +734,7 @@ TOOLS = [
     get_my_reading_goal,
     get_my_reading_streak,
     get_pricing_plans,
+    evaluate_membership_upsell,
     reserve_book,
     cancel_reservation,
     book_seat,
