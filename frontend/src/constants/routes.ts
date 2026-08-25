@@ -1,5 +1,8 @@
 export const ROUTES = {
   HOME: '/',
+  ADMIN_AGENT_CATALOG: '/admin/agent-catalog',
+  IT_HEAD_AGENT_CATALOG: '/it-head/agent-catalog',
+  MANAGER_AGENT_CATALOG: '/manager/agent-catalog',
   PRICING: '/pricing',
   LOGIN: '/login',
   REGISTER: '/register',

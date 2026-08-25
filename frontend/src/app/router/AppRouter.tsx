@@ -28,6 +28,9 @@ function withSuspense(element: ReactNode) {
 const LandingPage = lazy(() =>
   import('@/features/landing').then((m) => ({ default: m.LandingPage })),
 );
+const AgentCatalogPage = lazy(() =>
+  import('@/features/agent-catalog').then((m) => ({ default: m.AgentCatalogPage })),
+);
 const PricingPage = lazy(() =>
   import('@/features/pricing').then((m) => ({ default: m.PricingPage })),
 );
@@ -192,6 +195,10 @@ const router = createBrowserRouter([
             path: relative(ROUTES.MANAGER_BORROW_HISTORY),
             element: withSuspense(<ManagerBorrowHistoryPage />),
           },
+          {
+            path: relative(ROUTES.MANAGER_AGENT_CATALOG),
+            element: withSuspense(<AgentCatalogPage />),
+          },
         ],
       },
       { path: relative(ROUTES.BORROW_HISTORY), element: withSuspense(<MyBorrowHistoryPage />) },
@@ -218,6 +225,7 @@ const router = createBrowserRouter([
     errorElement: <ErrorState onRetry={() => window.location.assign(ROUTES.HOME)} />,
     children: [
       { path: relative(ROUTES.ADMIN), element: withSuspense(<AdminDashboardPage />) },
+      { path: relative(ROUTES.ADMIN_AGENT_CATALOG), element: withSuspense(<AgentCatalogPage />) },
       { path: relative(ROUTES.ADMIN_MEMBERS), element: withSuspense(<AdminMembersPage />) },
       { path: relative(ROUTES.ADMIN_PAYMENTS), element: withSuspense(<AdminPaymentsPage />) },
     ],
@@ -231,6 +239,7 @@ const router = createBrowserRouter([
     errorElement: <ErrorState onRetry={() => window.location.assign(ROUTES.HOME)} />,
     children: [
       { path: relative(ROUTES.IT_HEAD), element: withSuspense(<ITHeadDashboardPage />) },
+      { path: relative(ROUTES.IT_HEAD_AGENT_CATALOG), element: withSuspense(<AgentCatalogPage />) },
       { path: relative(ROUTES.IT_HEAD_REPORTS), element: withSuspense(<ITHeadReportsPage />) },
     ],
   },

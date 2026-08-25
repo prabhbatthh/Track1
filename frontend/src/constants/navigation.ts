@@ -1,6 +1,7 @@
 import {
   BookMarked,
   BookOpen,
+  Bot,
   Calendar,
   CalendarCheck,
   Cpu,
@@ -51,6 +52,7 @@ export const adminOverviewNavItem: NavItem = {
 
 export const adminNavigation: NavItem[] = [
   adminOverviewNavItem,
+  { label: 'nav.agentCatalog', path: ROUTES.ADMIN_AGENT_CATALOG, icon: Bot },
   { label: 'nav.members', path: ROUTES.ADMIN_MEMBERS, icon: Users },
   { label: 'nav.payments', path: ROUTES.ADMIN_PAYMENTS, icon: Receipt },
   { label: 'nav.community', path: ROUTES.COMMUNITY, icon: MessageCircle },
@@ -63,6 +65,7 @@ export const adminNavigation: NavItem[] = [
 
 export const managerNavigation: NavItem[] = [
   { label: 'nav.dashboard', path: ROUTES.DASHBOARD, icon: LayoutDashboard },
+  { label: 'nav.agentCatalog', path: ROUTES.MANAGER_AGENT_CATALOG, icon: Bot },
   { label: 'nav.books', path: ROUTES.MANAGER_BOOKS, icon: BookOpen },
   { label: 'nav.borrowHistory', path: ROUTES.MANAGER_BORROW_HISTORY, icon: History },
   { label: 'nav.community', path: ROUTES.COMMUNITY, icon: MessageCircle },
@@ -81,6 +84,7 @@ export const itHeadOverviewNavItem: NavItem = {
 
 export const itHeadNavigation: NavItem[] = [
   itHeadOverviewNavItem,
+  { label: 'nav.agentCatalog', path: ROUTES.IT_HEAD_AGENT_CATALOG, icon: Bot },
   { label: 'nav.itHeadReports', path: ROUTES.IT_HEAD_REPORTS, icon: FileBarChart },
   { label: 'nav.community', path: ROUTES.COMMUNITY, icon: MessageCircle },
   { label: 'nav.events', path: ROUTES.EVENTS, icon: Calendar },

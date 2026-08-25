@@ -22,6 +22,7 @@ from app.core.logging import configure_logging
 from app.core.rate_limit import limiter
 from app.db.prisma import prisma
 from app.modules.admin.router import router as admin_router
+from app.modules.agent.router import router as agent_router
 from app.modules.auth.router import router as auth_router
 from app.modules.billing_requests.router import router as billing_requests_router
 from app.modules.book_records.router import router as book_records_router
@@ -282,6 +283,8 @@ def create_app(settings: Settings | None = None) -> FastAPI:
         return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
     app.include_router(health_router)
+    app.include_router(agent_router, prefix=settings.api_prefix)
+    app.include_router(agent_router)
     app.include_router(auth_router, prefix=settings.api_prefix)
     app.include_router(members_router, prefix=settings.api_prefix)
     app.include_router(books_router, prefix=settings.api_prefix)
