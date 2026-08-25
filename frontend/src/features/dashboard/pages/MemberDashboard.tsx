@@ -32,8 +32,10 @@ import { RecentNotifications, UpcomingEvents } from '../components/RecentActivit
 
 // Calendar-day difference (ignores time-of-day) so "3 days left" doesn't flicker
 // to "2 days left" a few hours before midnight.
-function daysUntil(iso: string): number {
+function daysUntil(iso: string | null | undefined): number {
+  if (!iso) return 0;
   const due = new Date(iso);
+  if (Number.isNaN(due.getTime())) return 0;
   const now = new Date();
   const dueMidnight = Date.UTC(due.getFullYear(), due.getMonth(), due.getDate());
   const nowMidnight = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate());
@@ -179,14 +181,14 @@ export function MemberDashboard() {
   const [now] = useState(Date.now);
   const upcomingEvents = useMemo(
     () =>
-      events
-        .filter((e) => new Date(e.date).getTime() >= now)
+      (events || [])
+        .filter((e) => e && e.date && !Number.isNaN(new Date(e.date).getTime()) && new Date(e.date).getTime() >= now)
         .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
         .slice(0, 5)
         .map((e) => ({
           id: e.id,
-          title: e.title,
-          date: formatDate(e.date),
+          title: e.title || 'Event',
+          date: formatDate(e.date) || '',
         })),
     [events, now],
   );

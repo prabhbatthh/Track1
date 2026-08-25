@@ -46,7 +46,19 @@ async function apiRequest<T>(
   isRetry = false,
 ): Promise<T> {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers.Authorization = `Bearer ${token}`;
+  let authToken = token;
+  if (!authToken && typeof window !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('mock-auth');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        authToken = parsed?.token || parsed?.access_token || null;
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+  if (authToken) headers.Authorization = `Bearer ${authToken}`;
 
   const response = await fetch(`${API_URL}${API_PREFIX}${path}`, {
     method,

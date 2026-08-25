@@ -56,13 +56,14 @@ export function MemberSubscription({
   const { t } = useTranslation();
   const navigate = useNavigate();
   const [showFineDetails, setShowFineDetails] = useState(false);
-  const hasFine = outstandingFine !== '₹0';
+  const safeFine = String(outstandingFine || '₹0');
+  const hasFine = safeFine !== '₹0' && safeFine !== '0';
   const percent = elapsedPercent(purchasedAtIso, expiresAtIso);
 
   function payFine() {
-    const amount = Number(outstandingFine.replace(/[^\d.]/g, ''));
+    const amount = Number(safeFine.replace(/[^\d.]/g, '')) || 0;
     navigate(
-      `${ROUTES.PAYMENT}?amount=${amount}&label=${encodeURIComponent(t('dashboard.subscription.fineOwed', { amount: outstandingFine }))}`,
+      `${ROUTES.PAYMENT}?amount=${amount}&label=${encodeURIComponent(t('dashboard.subscription.fineOwed', { amount: safeFine }))}`,
     );
   }
 

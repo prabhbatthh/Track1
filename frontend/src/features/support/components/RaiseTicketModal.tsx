@@ -1,5 +1,5 @@
 import { Check, PartyPopper } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { Button, Checkbox, Modal, Textarea } from '@/components/ui';
@@ -34,9 +34,7 @@ export function RaiseTicketModal({ open, onClose, categories, onCreated }: Raise
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const [wasOpen, setWasOpen] = useState(open);
-  if (open !== wasOpen) {
-    setWasOpen(open);
+  useEffect(() => {
     if (open) {
       setStep(1);
       setCategory(null);
@@ -44,7 +42,7 @@ export function RaiseTicketModal({ open, onClose, categories, onCreated }: Raise
       setAcknowledged(false);
       setError(null);
     }
-  }
+  }, [open]);
 
   const trimmedLength = description.trim().length;
   const descriptionValid = trimmedLength >= MIN_LENGTH && trimmedLength <= MAX_LENGTH;

@@ -107,12 +107,12 @@ function CurrentlyInLibraryBody({ childrenList = [] }: { childrenList?: Guardian
       <ul className="flex flex-col gap-2">
         {paginatedItems.map((child) => (
           <li
-            key={child.id}
+            key={child?.id || Math.random()}
             className="flex items-center justify-between rounded-lg border border-border bg-surface p-3 text-sm"
           >
             <div className="flex items-center gap-3">
-              <Avatar name={child.full_name} size="sm" />
-              <p className="font-semibold text-foreground">{child.full_name}</p>
+              <Avatar name={child?.full_name || 'Child'} size="sm" />
+              <p className="font-semibold text-foreground">{child?.full_name || 'Child'}</p>
             </div>
             <Badge variant="success">In Library</Badge>
           </li>

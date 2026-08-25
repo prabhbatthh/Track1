@@ -1,5 +1,5 @@
 import { Star } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 
@@ -20,31 +20,27 @@ export function LeaveLibraryReviewModal({
   const { t } = useTranslation();
   const { getMyLibraryReview, submitLibraryReview } = useAuth();
 
-  const [prevOpen, setPrevOpen] = useState(false);
   const [rating, setRating] = useState<number>(5);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [quote, setQuote] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  if (open && !prevOpen) {
-    setPrevOpen(true);
-    setRating(5);
-    setQuote('');
-    setError(null);
-    // ponytail: pre-fill from the member's latest submission (any status) so re-opening
-    // the modal after a pending/rejected review doesn't start from a blank slate.
-    getMyLibraryReview()
-      .then((existing) => {
-        if (existing) {
-          setRating(existing.rating);
-          setQuote(existing.comment);
-        }
-      })
-      .catch(() => {});
-  } else if (!open && prevOpen) {
-    setPrevOpen(false);
-  }
+  useEffect(() => {
+    if (open) {
+      setRating(5);
+      setQuote('');
+      setError(null);
+      getMyLibraryReview()
+        .then((existing) => {
+          if (existing) {
+            setRating(existing.rating);
+            setQuote(existing.comment);
+          }
+        })
+        .catch(() => {});
+    }
+  }, [open, getMyLibraryReview]);
 
   const displayRating = hoverRating ?? rating;
 

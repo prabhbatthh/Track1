@@ -87,6 +87,33 @@ async def main() -> None:
                 },
             )
             print(f"Seeded {email} ({role_name})")
+
+        # Seed realistic active loan activity for member@devpreview.internal to demonstrate AI Growth Engine
+        member_user = await prisma.user.find_unique(where={"email": _email("member")})
+        admin_user = await prisma.user.find_unique(where={"email": _email("admin")})
+        if member_user:
+            existing_loan = await prisma.loan.find_first(where={"memberId": member_user.id})
+            if not existing_loan:
+                book = await prisma.book.find_first()
+                if book:
+                    import datetime
+                    now = datetime.datetime.now(datetime.timezone.utc)
+                    borrowed_at = now - datetime.timedelta(days=10)
+                    due_date = now + datetime.timedelta(days=14)
+                    created_by_id = admin_user.id if admin_user else member_user.id
+                    await prisma.loan.create(
+                        data={
+                            "bookId": book.id,
+                            "memberId": member_user.id,
+                            "createdById": created_by_id,
+                            "borrowedAt": borrowed_at,
+                            "dueDate": due_date,
+                            "finePaid": False,
+                        }
+                    )
+                    print(f"Seeded active demo loan for {_email('member')} (Book: {book.title})")
+            else:
+                print(f"Demo loan already exists for {_email('member')}, skipping duplicate creation.")
     finally:
         await prisma.disconnect()
 

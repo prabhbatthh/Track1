@@ -42,18 +42,18 @@ export function LibraryReviewCard({ onOpenModal, refreshKey }: LibraryReviewCard
                     <Star
                       key={i}
                       className={`size-3.5 ${
-                        i < existingReview.rating
+                        i < (existingReview.rating || 0)
                           ? 'fill-warning text-warning'
                           : 'text-border fill-transparent'
                       }`}
                     />
                   ))}
                   <span className="font-medium text-foreground text-xs ml-1">
-                    {existingReview.rating}.0
+                    {existingReview.rating || 0}.0
                   </span>
                 </div>
                 <p className="mt-1 line-clamp-2 text-xs italic text-muted-foreground">
-                  &ldquo;{existingReview.comment}&rdquo;
+                  &ldquo;{existingReview.comment || ''}&rdquo;
                 </p>
                 {existingReview.status !== 'approved' && (
                   <p className="mt-1 text-[11px] font-medium text-warning">

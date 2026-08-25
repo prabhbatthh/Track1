@@ -304,10 +304,19 @@ async def approve_and_create_autopay_order(
         include={"book": True, "member": True},
     )
     if loan is None or loan.memberId != payload.member_id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Fine charge not found for this member",
+        db_loans = await prisma.loan.find_many(
+            where={"memberId": payload.member_id, "finePaid": False},
+            include={"book": True, "member": True},
         )
+        now_dt = datetime.now(UTC)
+        unpaid_loans = [l for l in db_loans if l.dueDate.replace(tzinfo=UTC) < now_dt and not l.returnedAt]
+        if unpaid_loans:
+            loan = max(unpaid_loans, key=lambda l: (now_dt - l.dueDate.replace(tzinfo=UTC)).days)
+        else:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Fine charge not found for this member",
+            )
 
     if loan.finePaid:
         raise HTTPException(

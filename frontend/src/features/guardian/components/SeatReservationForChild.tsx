@@ -33,10 +33,16 @@ function formatHourLabel(hour: number): string {
 export function SeatReservationForChild({ children }: { children: GuardianChild[] }) {
   const { t } = useTranslation();
   const { getSeatSchedule, bookSeatForChild, requestSeatNotifyForChild, cancelSeatBooking } = useAuth();
-  const [selectedChildId, setSelectedChildId] = useState<string>(children[0]?.id ?? '');
+  const [selectedChildId, setSelectedChildId] = useState<string>(children?.[0]?.id ?? '');
   const [selectedSeatLabel, setSelectedSeatLabel] = useState<string | null>(null);
   const [notifiedSeatLabels, setNotifiedSeatLabels] = useState<Set<string>>(new Set());
   const [seats, setSeats] = useState<SeatSlot[] | null>(null);
+
+  useEffect(() => {
+    if (!selectedChildId && children && children.length > 0 && children[0]?.id) {
+      setSelectedChildId(children[0].id);
+    }
+  }, [children, selectedChildId]);
 
   const dateOptions = useMemo(() => {
     const today = new Date();

@@ -4,8 +4,9 @@ import { Badge, Card, CardContent, CardHeader, CardTitle, EmptyState } from '@/c
 import { formatDate } from '@/lib/format';
 import type { ChildVisitStatus } from '@/providers/AuthProvider';
 
-export function ChildrenPresence({ children }: { children: ChildVisitStatus[] }) {
+export function ChildrenPresence({ children = [] }: { children?: ChildVisitStatus[] }) {
   const { t } = useTranslation();
+  const safeChildren = children ?? [];
 
   return (
     <Card>
@@ -13,14 +14,15 @@ export function ChildrenPresence({ children }: { children: ChildVisitStatus[] })
         <CardTitle>{t('guardian.presence.title')}</CardTitle>
       </CardHeader>
       <CardContent>
-        {children.length === 0 ? (
+        {safeChildren.length === 0 ? (
           <EmptyState
             title={t('guardian.presence.emptyTitle')}
             description={t('guardian.presence.emptyDescription')}
           />
         ) : (
           <ul className="flex flex-col gap-3">
-            {children.map((child) => {
+            {safeChildren.map((child) => {
+              if (!child) return null;
               const statusText = child.is_in_library
                 ? 'In library'
                 : child.last_checked_out_at
@@ -34,11 +36,11 @@ export function ChildrenPresence({ children }: { children: ChildVisitStatus[] })
 
               return (
                 <li
-                  key={child.child_id}
+                  key={child.child_id || Math.random()}
                   className="flex flex-col gap-2 rounded-lg border border-border p-3 text-sm sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div>
-                    <p className="font-medium text-foreground">{child.child_name}</p>
+                    <p className="font-medium text-foreground">{child.child_name || 'Child'}</p>
                     <p className="text-xs text-muted-foreground">{subtitle}</p>
                   </div>
                   <Badge variant={child.is_in_library ? 'success' : 'outline'}>

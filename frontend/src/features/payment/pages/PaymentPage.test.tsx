@@ -148,4 +148,54 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
       );
     });
   });
+
+  it('renders AISavingsPanel with AI RECOMMENDED attribution when upgraded via AI proposal', async () => {
+    vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue(mockUpsellProposal);
+
+    render(
+      <MemoryRouter initialEntries={['/payment?plan=1m&label=1%20Month']}>
+        <Routes>
+          <Route path="/payment" element={<PaymentPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/Upgrade to 12 Months/i)).toBeInTheDocument();
+    });
+
+    // Click AI upgrade
+    fireEvent.click(screen.getByText(/Upgrade to 12 Months/i));
+
+    // Verify AI Savings panel renders with AI RECOMMENDED badge
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-savings-panel')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('ai-recommended-badge')).toHaveTextContent(/AI RECOMMENDED/i);
+    expect(screen.getByTestId('ai-savings-amount')).toHaveTextContent(/₹2,997/);
+  });
+
+  it('renders AISavingsPanel with YEARLY VALUE PLAN attribution when manually navigating to /payment?plan=12m', async () => {
+    vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue({
+      ...mockUpsellProposal,
+      eligible: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/payment?plan=12m&label=12%20Month%20Membership']}>
+        <Routes>
+          <Route path="/payment" element={<PaymentPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('ai-savings-panel')).toBeInTheDocument();
+    });
+
+    expect(screen.getByTestId('yearly-value-badge')).toHaveTextContent(/YEARLY VALUE PLAN/i);
+    expect(screen.queryByTestId('ai-recommended-badge')).not.toBeInTheDocument();
+    expect(screen.getByTestId('ai-savings-amount')).toHaveTextContent(/₹2,997/);
+  });
 });

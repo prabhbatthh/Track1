@@ -8,24 +8,30 @@ export interface ErrorBoundaryProps {
 
 interface ErrorBoundaryState {
   hasError: boolean;
+  error: Error | null;
 }
 
 // Catches render errors thrown outside the router (providers, ChatbotWidget, Toaster),
 // which route-level errorElements never see since they aren't part of the router tree.
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = { hasError: false };
+  state: ErrorBoundaryState = { hasError: false, error: null };
 
-  static getDerivedStateFromError() {
-    return { hasError: true };
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error };
   }
 
-  componentDidCatch(error: unknown) {
-    console.error(error);
+  componentDidCatch(error: unknown, errorInfo: unknown) {
+    console.error('ErrorBoundary caught error:', error, errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
-      return <ErrorState onRetry={() => window.location.assign('/')} />;
+      return (
+        <ErrorState
+          description={this.state.error?.message}
+          onRetry={() => window.location.assign(window.location.pathname)}
+        />
+      );
     }
     return this.props.children;
   }

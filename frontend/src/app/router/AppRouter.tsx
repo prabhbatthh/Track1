@@ -1,20 +1,35 @@
 import { lazy, Suspense, type ReactNode } from 'react';
-import { createBrowserRouter, Outlet, RouterProvider } from 'react-router-dom';
+import { createBrowserRouter, Outlet, RouterProvider, useRouteError } from 'react-router-dom';
 
 import { AdminLayout } from '@/app/layouts/AdminLayout';
 import { GuardianLayout } from '@/app/layouts/GuardianLayout';
 import { ITHeadLayout } from '@/app/layouts/ITHeadLayout';
 import { PublicLayout } from '@/app/layouts/PublicLayout';
 import { UserLayout } from '@/app/layouts/UserLayout';
-// Imported from its own path, not the '@/components/common' barrel — that barrel also
-// re-exports ExportButton, which statically pulls in jsPDF; going through it here (AppRouter
-// is eager, unlike every page it routes to) would drag jsPDF into the eager entry bundle too.
 import { PageLoader } from '@/components/common/PageLoader';
 import { ErrorState } from '@/components/feedback';
 import { ROUTES } from '@/constants/routes';
 import { NotFound } from '@/pages/NotFound';
 
 import { ProtectedRoute, PublicRoute, RoleRoute } from './guards';
+
+function RouterErrorFallback() {
+  const error = useRouteError();
+  console.error('React Router errorElement caught:', error);
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'string'
+      ? error
+      : (error as { statusText?: string })?.statusText || 'An unexpected error occurred.';
+
+  return (
+    <ErrorState
+      description={message}
+      onRetry={() => window.location.assign(window.location.pathname)}
+    />
+  );
+}
 
 // react-router children paths are relative to their (pathless) layout parent.
 const relative = (path: string) => path.slice(1);
@@ -150,7 +165,7 @@ const GuardianDashboardPage = lazy(() =>
 const router = createBrowserRouter([
   {
     element: <PublicLayout />,
-    errorElement: <ErrorState onRetry={() => window.location.assign(ROUTES.HOME)} />,
+    errorElement: <RouterErrorFallback />,
     children: [
       { index: true, element: withSuspense(<LandingPage />) },
       { path: relative(ROUTES.PRICING), element: withSuspense(<PricingPage />) },
@@ -178,7 +193,7 @@ const router = createBrowserRouter([
         <UserLayout />
       </ProtectedRoute>
     ),
-    errorElement: <ErrorState onRetry={() => window.location.assign(ROUTES.HOME)} />,
+    errorElement: <RouterErrorFallback />,
     children: [
       { path: relative(ROUTES.DASHBOARD), element: withSuspense(<DashboardPage />) },
       { path: relative(ROUTES.BOOKS), element: withSuspense(<BooksListPage />) },
@@ -222,7 +237,7 @@ const router = createBrowserRouter([
         <AdminLayout />
       </RoleRoute>
     ),
-    errorElement: <ErrorState onRetry={() => window.location.assign(ROUTES.HOME)} />,
+    errorElement: <RouterErrorFallback />,
     children: [
       { path: relative(ROUTES.ADMIN), element: withSuspense(<AdminDashboardPage />) },
       { path: relative(ROUTES.ADMIN_AGENT_CATALOG), element: withSuspense(<AgentCatalogPage />) },
@@ -236,7 +251,7 @@ const router = createBrowserRouter([
         <ITHeadLayout />
       </RoleRoute>
     ),
-    errorElement: <ErrorState onRetry={() => window.location.assign(ROUTES.HOME)} />,
+    errorElement: <RouterErrorFallback />,
     children: [
       { path: relative(ROUTES.IT_HEAD), element: withSuspense(<ITHeadDashboardPage />) },
       { path: relative(ROUTES.IT_HEAD_AGENT_CATALOG), element: withSuspense(<AgentCatalogPage />) },
@@ -249,7 +264,7 @@ const router = createBrowserRouter([
         <GuardianLayout />
       </RoleRoute>
     ),
-    errorElement: <ErrorState onRetry={() => window.location.assign(ROUTES.HOME)} />,
+    errorElement: <RouterErrorFallback />,
     children: [
       { path: relative(ROUTES.GUARDIAN), element: withSuspense(<GuardianDashboardPage />) },
     ],

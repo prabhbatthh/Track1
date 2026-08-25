@@ -12,6 +12,7 @@ import { AIUpsellProposal, acceptUpsell, evaluateUpsell, type UpsellEvaluateResp
 import { getErrorMessage } from '@/lib/api';
 import { loadRazorpayCheckout } from '@/lib/razorpay';
 import { useAuth, type CouponValidation, type PricingPlan } from '@/providers/AuthProvider';
+import { AISavingsPanel } from '../components/AISavingsPanel';
 
 // Auth is already enforced by the ProtectedRoute this page is nested under
 // (see AppRouter.tsx) — no need to re-check isAuthenticated here.
@@ -43,6 +44,7 @@ export function PaymentPage() {
   const isRenewal = params.get('renewal') === '1';
 
   const [plan, setPlan] = useState<PricingPlan | null>(null);
+  const [allPricingPlans, setAllPricingPlans] = useState<PricingPlan[]>([]);
   const [isLoadingPlan, setIsLoadingPlan] = useState(Boolean(planId));
   const [planError, setPlanError] = useState<string | null>(null);
   const [planRequestKey, setPlanRequestKey] = useState(0);
@@ -59,6 +61,7 @@ export function PaymentPage() {
     getPricingPlans()
       .then((plans) => {
         if (cancelled) return;
+        setAllPricingPlans(plans);
         const selectedPlan = plans.find((item) => item.plan_id === planId);
         if (selectedPlan) {
           setPlan(selectedPlan);
@@ -272,190 +275,210 @@ export function PaymentPage() {
     );
   }
 
+  const monthlyCatalogPlan = allPricingPlans.find((p) => p.months === 1);
+  const isAiRecommended = upgradedFromPlanId !== null;
+  const showSavingsPanel = Boolean(plan && monthlyCatalogPlan && (plan.months ?? 1) > 1);
+
   return (
-    <div className="mx-auto max-w-md flex flex-col gap-5 pb-8">
+    <div className={`mx-auto flex flex-col gap-6 pb-8 ${showSavingsPanel ? 'max-w-5xl' : 'max-w-md'}`}>
       <PageHeader title={t('payment.pageTitle')} description={label} />
 
-      {/* Top Hero Banner Card with In-Place Toggle Expansion */}
-      <div
-        onClick={() => setIsImageExpanded(!isImageExpanded)}
-        className="group relative cursor-pointer overflow-hidden rounded-3xl border border-purple-200/80 bg-white shadow-md transition-all duration-300 hover:shadow-xl dark:border-purple-900/40 dark:bg-zinc-950"
-        role="button"
-        tabIndex={0}
-        aria-label={isImageExpanded ? 'Collapse image banner' : 'Expand full image banner'}
-        onKeyDown={(e) => e.key === 'Enter' && setIsImageExpanded(!isImageExpanded)}
-      >
-        <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent z-10 pointer-events-none" />
+      <div className={showSavingsPanel ? 'grid grid-cols-1 gap-8 lg:grid-cols-12 items-start' : 'flex flex-col gap-5'}>
+        {/* Left Column: Payment Details & Checkout Actions */}
+        <div className={showSavingsPanel ? 'lg:col-span-7 flex flex-col gap-5' : 'flex flex-col gap-5'}>
+          {/* Top Hero Banner Card with In-Place Toggle Expansion */}
+          <div
+            onClick={() => setIsImageExpanded(!isImageExpanded)}
+            className="group relative cursor-pointer overflow-hidden rounded-3xl border border-purple-200/80 bg-white shadow-md transition-all duration-300 hover:shadow-xl dark:border-purple-900/40 dark:bg-zinc-950"
+            role="button"
+            tabIndex={0}
+            aria-label={isImageExpanded ? 'Collapse image banner' : 'Expand full image banner'}
+            onKeyDown={(e) => e.key === 'Enter' && setIsImageExpanded(!isImageExpanded)}
+          >
+            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/35 to-transparent z-10 pointer-events-none" />
 
-        <img
-          src="/images/ai_upsell_hero.jpg"
-          alt="Reading Club Header"
-          className={`w-full transition-all duration-500 ease-in-out ${
-            isImageExpanded
-              ? 'h-auto max-h-[550px] object-contain bg-white dark:bg-zinc-950'
-              : 'h-56 object-cover object-top sm:h-64'
-          }`}
-        />
+            <img
+              src="/images/ai_upsell_hero.jpg"
+              alt="Reading Club Header"
+              className={`w-full transition-all duration-500 ease-in-out ${
+                isImageExpanded
+                  ? 'h-auto max-h-[550px] object-contain bg-white dark:bg-zinc-950'
+                  : 'h-56 object-cover object-top sm:h-64'
+              }`}
+            />
 
-        <div className="absolute bottom-0 left-0 right-0 z-20 p-6 text-white pointer-events-none">
-          <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-purple-200">
-            READING CLUB
-          </p>
-          <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold font-serif tracking-tight text-white">
-            {label.endsWith('Membership') ? label : `${label} Membership`}
-          </h2>
-          <div className="flex items-center gap-3 mt-1">
-            <p className="text-3xl font-black text-white" data-testid="payment-amount">
-              ₹{amount}
-            </p>
-            {upgradedFromPlanId && (
-              <span
-                data-testid="ai-selection-badge"
-                className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-100 backdrop-blur-md border border-emerald-400/40"
-              >
-                <Check className="size-3.5 text-emerald-300" />
-                <span>✓ AI recommendation selected</span>
-              </span>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* High-Impact Victory Confirmation Card after AI Upsell Selection */}
-      {upgradedFromPlanId && (
-        <div
-          role="status"
-          aria-live="polite"
-          data-testid="ai-selection-confirmation"
-          className="relative overflow-hidden rounded-3xl border-2 border-emerald-400/60 bg-gradient-to-br from-emerald-50 via-teal-50/90 to-amber-50/60 p-5 text-emerald-950 shadow-xl shadow-emerald-500/10 transition-all dark:border-emerald-500/50 dark:from-emerald-950/60 dark:via-teal-950/40 dark:to-zinc-950 dark:text-emerald-100"
-        >
-          <div className="flex items-start gap-3.5">
-            <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30">
-              <Trophy className="size-5 text-amber-200 animate-bounce" />
-            </div>
-            <div className="flex flex-col gap-1">
-              <div className="flex items-center gap-2">
-                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
-                  <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
-                  SAVINGS LOCKED
-                </span>
-                <span className="text-xs font-extrabold text-amber-600 dark:text-amber-400">
-                  🎉 VICTORY!
-                </span>
-              </div>
-              <h4 className="text-sm font-extrabold text-emerald-950 dark:text-emerald-50">
-                Congratulations! You unlocked optimal long-term savings.
-              </h4>
-              <p className="text-xs text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed font-medium">
-                Your <strong className="font-bold text-emerald-950 dark:text-emerald-100">{label.endsWith('Membership') ? label : `${label} Membership`}</strong> is selected. You save <strong>25%</strong> per month!
+            <div className="absolute bottom-0 left-0 right-0 z-20 p-6 text-white pointer-events-none">
+              <p className="font-mono text-[11px] font-bold uppercase tracking-widest text-purple-200">
+                READING CLUB
               </p>
-              <div className="mt-2 flex items-center gap-1.5 rounded-xl border border-emerald-300/60 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/30 dark:text-emerald-200">
-                <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
-                <span>No payment has been made yet. Review your order below and click <strong>Pay with Razorpay</strong> when ready.</span>
+              <h2 className="mt-1 text-2xl sm:text-3xl font-extrabold font-serif tracking-tight text-white">
+                {label.endsWith('Membership') ? label : `${label} Membership`}
+              </h2>
+              <div className="flex items-center gap-3 mt-1">
+                <p className="text-3xl font-black text-white" data-testid="payment-amount">
+                  ₹{amount}
+                </p>
+                {upgradedFromPlanId && (
+                  <span
+                    data-testid="ai-selection-badge"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-emerald-500/30 px-3 py-1 text-xs font-bold text-emerald-100 backdrop-blur-md border border-emerald-400/40"
+                  >
+                    <Check className="size-3.5 text-emerald-300" />
+                    <span>✓ AI recommendation selected</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
-        </div>
-      )}
 
-      {/* Non-blocking loading indicator while AI evaluates available plans */}
-      {isEvaluatingUpsell && !upsellDismissed && (
-        <div className="flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50/50 p-4 text-xs font-mono text-purple-900 animate-pulse dark:border-purple-900/40 dark:bg-purple-950/20 dark:text-purple-200">
-          <Bot className="size-4 animate-bounce text-purple-700 dark:text-purple-300" />
-          <span>AI is evaluating membership options for optimal savings...</span>
-        </div>
-      )}
+          {/* High-Impact Victory Confirmation Card after AI Upsell Selection */}
+          {upgradedFromPlanId && (
+            <div
+              role="status"
+              aria-live="polite"
+              data-testid="ai-selection-confirmation"
+              className="relative overflow-hidden rounded-3xl border-2 border-emerald-400/60 bg-gradient-to-br from-emerald-50 via-teal-50/90 to-amber-50/60 p-5 text-emerald-950 shadow-xl shadow-emerald-500/10 transition-all dark:border-emerald-500/50 dark:from-emerald-950/60 dark:via-teal-950/40 dark:to-zinc-950 dark:text-emerald-100"
+            >
+              <div className="flex items-start gap-3.5">
+                <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white shadow-md shadow-emerald-500/30">
+                  <Trophy className="size-5 text-amber-200 animate-bounce" />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 text-[11px] font-bold text-emerald-800 dark:text-emerald-300">
+                      <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                      SAVINGS LOCKED
+                    </span>
+                    <span className="text-xs font-extrabold text-amber-600 dark:text-amber-400">
+                      🎉 VICTORY!
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-extrabold text-emerald-950 dark:text-emerald-50">
+                    Congratulations! You unlocked optimal long-term savings.
+                  </h4>
+                  <p className="text-xs text-emerald-900/90 dark:text-emerald-200/90 leading-relaxed font-medium">
+                    Your <strong className="font-bold text-emerald-950 dark:text-emerald-100">{label.endsWith('Membership') ? label : `${label} Membership`}</strong> is selected. You save <strong>25%</strong> per month!
+                  </p>
+                  <div className="mt-2 flex items-center gap-1.5 rounded-xl border border-emerald-300/60 bg-white/70 px-3 py-1.5 text-[11px] font-semibold text-emerald-800 dark:border-emerald-800/60 dark:bg-emerald-900/30 dark:text-emerald-200">
+                    <ShieldCheck className="size-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <span>No payment has been made yet. Review your order below and click <strong>Pay with Razorpay</strong> when ready.</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
-      {/* AI Upsell Recommendation Smart Tip Card */}
-      {!isEvaluatingUpsell && upsellProposal && upsellProposal.eligible && !upsellDismissed && (
-        <AIUpsellProposal
-          proposal={upsellProposal}
-          onConsiderUpgrade={handleConsiderUpgrade}
-          onKeepCurrent={handleKeepCurrent}
-        />
-      )}
+          {/* Non-blocking loading indicator while AI evaluates available plans */}
+          {isEvaluatingUpsell && !upsellDismissed && (
+            <div className="flex items-center justify-center gap-2 rounded-2xl border border-purple-200 bg-purple-50/50 p-4 text-xs font-mono text-purple-900 animate-pulse dark:border-purple-900/40 dark:bg-purple-950/20 dark:text-purple-200">
+              <Bot className="size-4 animate-bounce text-purple-700 dark:text-purple-300" />
+              <span>AI is evaluating membership options for optimal savings...</span>
+            </div>
+          )}
 
-      {/* Coupon Code Section */}
-      <div className="flex flex-col gap-1.5 pt-1">
-        <label className="text-xs font-medium text-muted-foreground">Coupon code</label>
-        {appliedCoupon ? (
-          <div className="flex items-center justify-between rounded-xl border border-success/50 bg-success/10 px-4 py-2.5 text-sm">
-            <span className="font-medium text-foreground">
-              {t('payment.coupon.applied', {
-                code: appliedCoupon.code,
-                percent: appliedCoupon.discount_percent,
-              })}
-            </span>
+          {/* AI Upsell Recommendation Smart Tip Card */}
+          {!isEvaluatingUpsell && upsellProposal && upsellProposal.eligible && !upsellDismissed && (
+            <AIUpsellProposal
+              proposal={upsellProposal}
+              onConsiderUpgrade={handleConsiderUpgrade}
+              onKeepCurrent={handleKeepCurrent}
+            />
+          )}
+
+          {/* Coupon Code Section */}
+          <div className="flex flex-col gap-1.5 pt-1">
+            <label className="text-xs font-medium text-muted-foreground">Coupon code</label>
+            {appliedCoupon ? (
+              <div className="flex items-center justify-between rounded-xl border border-success/50 bg-success/10 px-4 py-2.5 text-sm">
+                <span className="font-medium text-foreground">
+                  {t('payment.coupon.applied', {
+                    code: appliedCoupon.code,
+                    percent: appliedCoupon.discount_percent,
+                  })}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleRemoveCoupon}
+                  className="text-xs font-medium text-primary hover:underline"
+                >
+                  {t('payment.coupon.remove')}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <Input
+                  placeholder="Enter code"
+                  value={couponCode}
+                  onChange={(event) => setCouponCode(event.target.value)}
+                  disabled={isLoadingPlan}
+                  className="flex-1 rounded-xl bg-muted/40 text-xs"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleApplyCoupon}
+                  isLoading={isApplyingCoupon}
+                  disabled={isLoadingPlan || !couponCode.trim()}
+                  className="rounded-xl px-5 text-xs font-semibold"
+                >
+                  Apply
+                </Button>
+              </div>
+            )}
+            {couponError && <p className="text-sm text-danger">{couponError}</p>}
+          </div>
+
+          {isRenewal && (
+            <p className="text-center text-sm text-muted-foreground">
+              {t('payment.renewingCurrentPlan')}{' '}
+              <Link to={ROUTES.PRICING} className="font-medium text-primary hover:underline">
+                {t('payment.changePlan')}
+              </Link>
+            </p>
+          )}
+
+          {/* Primary Pay Button */}
+          <Button
+            size="lg"
+            className="w-full bg-[#3b1254] hover:bg-[#2e0e42] text-white font-bold py-3.5 rounded-2xl shadow-md text-base flex items-center justify-center gap-2"
+            onClick={handlePayWithRazorpay}
+            isLoading={isStartingCheckout}
+            disabled={isLoadingPlan || !hasValidAmount || Boolean(planError)}
+          >
+            <span>Pay with Razorpay</span>
+            <ArrowRight className="size-4.5" />
+          </Button>
+
+          {/* Pay in Person / Cash Option */}
+          <div className="text-center space-y-1 pt-2">
+            <p className="text-xs text-muted-foreground">Prefer to pay at the club?</p>
             <button
               type="button"
-              onClick={handleRemoveCoupon}
-              className="text-xs font-medium text-primary hover:underline"
+              onClick={handlePayAtLibrary}
+              disabled={isPayingAtLibrary || isLoadingPlan || !hasValidAmount}
+              className="text-xs font-bold text-purple-950 dark:text-purple-200 underline hover:text-purple-800 transition-colors"
             >
-              {t('payment.coupon.remove')}
+              Pay in Person (Notify Manager)
             </button>
           </div>
-        ) : (
-          <div className="flex gap-2">
-            <Input
-              placeholder="Enter code"
-              value={couponCode}
-              onChange={(event) => setCouponCode(event.target.value)}
-              disabled={isLoadingPlan}
-              className="flex-1 rounded-xl bg-muted/40 text-xs"
+
+          <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground pt-2">
+            <ShieldCheck className="size-3.5" />
+            {t('payment.secureNotice')}
+          </p>
+        </div>
+
+        {/* Right Column: AI Savings / Value Comparison Panel */}
+        {showSavingsPanel && (
+          <div className="lg:col-span-5 lg:sticky lg:top-6">
+            <AISavingsPanel
+              isAiRecommended={isAiRecommended}
+              selectedPlan={plan!}
+              monthlyPlan={monthlyCatalogPlan!}
             />
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={handleApplyCoupon}
-              isLoading={isApplyingCoupon}
-              disabled={isLoadingPlan || !couponCode.trim()}
-              className="rounded-xl px-5 text-xs font-semibold"
-            >
-              Apply
-            </Button>
           </div>
         )}
-        {couponError && <p className="text-sm text-danger">{couponError}</p>}
       </div>
-
-      {isRenewal && (
-        <p className="text-center text-sm text-muted-foreground">
-          {t('payment.renewingCurrentPlan')}{' '}
-          <Link to={ROUTES.PRICING} className="font-medium text-primary hover:underline">
-            {t('payment.changePlan')}
-          </Link>
-        </p>
-      )}
-
-      {/* Primary Pay Button */}
-      <Button
-        size="lg"
-        className="w-full bg-[#3b1254] hover:bg-[#2e0e42] text-white font-bold py-3.5 rounded-2xl shadow-md text-base flex items-center justify-center gap-2"
-        onClick={handlePayWithRazorpay}
-        isLoading={isStartingCheckout}
-        disabled={isLoadingPlan || !hasValidAmount || Boolean(planError)}
-      >
-        <span>Pay with Razorpay</span>
-        <ArrowRight className="size-4.5" />
-      </Button>
-
-      {/* Pay in Person / Cash Option */}
-      <div className="text-center space-y-1 pt-2">
-        <p className="text-xs text-muted-foreground">Prefer to pay at the club?</p>
-        <button
-          type="button"
-          onClick={handlePayAtLibrary}
-          disabled={isPayingAtLibrary || isLoadingPlan || !hasValidAmount}
-          className="text-xs font-bold text-purple-950 dark:text-purple-200 underline hover:text-purple-800 transition-colors"
-        >
-          Pay in Person (Notify Manager)
-        </button>
-      </div>
-
-      <p className="flex items-center justify-center gap-1.5 text-[11px] text-muted-foreground pt-2">
-        <ShieldCheck className="size-3.5" />
-        {t('payment.secureNotice')}
-      </p>
     </div>
   );
 }
