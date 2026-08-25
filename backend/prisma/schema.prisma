@@ -111,7 +111,23 @@ model GuardianLink {
   // the digest for the rest of the month instead of sending it once.
   lastDigestSentAt DateTime? @map("last_digest_sent_at")
 
+  autopayPolicy GuardianAutopayPolicy?
+
   @@map("guardian_links")
+}
+
+model GuardianAutopayPolicy {
+  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  guardianLinkId     String   @unique @map("guardian_link_id") @db.Uuid
+  guardianLink       GuardianLink @relation(fields: [guardianLinkId], references: [id], onDelete: Cascade)
+  enabled            Boolean  @default(true)
+  perTransactionCap  Int      @default(200) @map("per_transaction_cap")
+  monthlySpendingCap Int      @default(1000) @map("monthly_spending_cap")
+  allowedChargeTypes String[] @default(["fine"]) @map("allowed_charge_types")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("guardian_autopay_policies")
 }
 
 model Payment {
