@@ -1,0 +1,3003 @@
+{
+  "common": {
+    "brandFull": "Community Reading Club",
+    "brandShort": "Reading Club",
+    "signIn": "Sign in",
+    "getStarted": "Get Started",
+    "you": "You",
+    "quickActionsTitle": "Quick Actions",
+    "dashboardSectionsHeading": "Dashboard sections",
+    "percentComplete": "{{percent}}% complete",
+    "weekdays": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+    "trend": {
+      "vsLastMonth": "vs last month"
+    },
+    "time": {
+      "hoursAgo": "{{count}}h ago",
+      "daysAgo": "{{count}}d ago",
+      "daysLeft": "{{count}}d left",
+      "since": "Since {{date}}"
+    },
+    "actions": {
+      "reject": "Reject",
+      "approve": "Approve",
+      "manage": "Manage",
+      "viewReport": "View report",
+      "cancel": "Cancel",
+      "close": "Close",
+      "reset": "Reset",
+      "filters": "Filters",
+      "sort": "Sort"
+    },
+    "pagination": {
+      "showing": "Showing {{start}}–{{end}} of {{total}}",
+      "pageOf": "Page {{current}} of {{total}}",
+      "previous": "Previous page",
+      "next": "Next page"
+    },
+    "errors": {
+      "generic": "Something went wrong. Please try again.",
+      "translationUnavailable": "That language could not be loaded — showing English for now."
+    },
+    "emptyState": {
+      "noResults": "No results found"
+    },
+    "export": {
+      "csv": "Export CSV",
+      "pdf": "Export PDF"
+    },
+    "cards": {
+      "event": {
+        "registered": "Registered",
+        "viewDetails": "View details",
+        "ongoing": "Ongoing",
+        "closed": "Closed",
+        "upcoming": "Upcoming"
+      },
+      "book": {
+        "reserve": "Reserve",
+        "viewDetailsAria": "View details for {{title}}",
+        "viewSummaryAria": "View summary for {{title}}"
+      },
+      "seat": {
+        "labelWithStatus": "{{label}}: {{status}}",
+        "seatLabelWithStatus": "Seat {{label}}: {{status}}"
+      },
+      "notification": {
+        "markAsRead": "Mark as read",
+        "unread": "Unread"
+      },
+      "review": {
+        "ratedOutOf5": "Rated {{rating}} out of 5",
+        "editReview": "Edit review",
+        "deleteReview": "Delete review"
+      }
+    }
+  },
+  "language": {
+    "label": "Language"
+  },
+  "chatbot": {
+    "title": "Shelfie",
+    "demoBadge": "Demo",
+    "greeting": "Hi, I'm Shelfie — your friendly library assistant! Ask me about books, events, seats, or your account, and I'll help you find your way.",
+    "placeholder": "Type a message...",
+    "send": "Send",
+    "openChat": "Talk to Shelfie",
+    "closeChat": "Close chat",
+    "demoReply": "Thanks for chatting with me! I'm still in demo mode, so my answers are a preview for now — full AI-powered replies are coming soon.",
+    "tooltip": "Talk to Shelfie here",
+    "fallback": "I'm not sure about that one yet! Try asking about borrowing books, seat reservations, membership, fines, reading clubs, donations, or events. You can also visit our Contact Us page for more help.",
+    "suggestedTitle": "Suggested questions"
+  },
+  "topUtilityBar": {
+    "website": "Website",
+    "communityForum": "Community Forum",
+    "newsletter": "Newsletter"
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "agentCatalog": "AI Catalog",
+    "pricing": "Pricing",
+    "books": "Books",
+    "borrowHistory": "Borrow History",
+    "reservations": "Reservations",
+    "seatBooking": "Seat Booking",
+    "community": "Community",
+    "events": "Events",
+    "readingProgress": "Reading Progress",
+    "leaderboard": "Leaderboard",
+    "reviews": "Reviews",
+    "notifications": "Notifications",
+    "support": "Support",
+    "settings": "Settings",
+    "adminOverview": "Admin Overview",
+    "members": "Members",
+    "itHeadOverview": "IT Overview",
+    "itHeadReports": "Reports",
+    "guardianOverview": "Guardian Overview",
+    "backToApp": "Back to App",
+    "contactUs": "Contact Us",
+    "payments": "Payments"
+  },
+  "userMenu": {
+    "openAccountMenu": "Open account menu",
+    "account": "Account",
+    "profile": "Profile",
+    "settings": "Settings",
+    "logOut": "Log out"
+  },
+  "themeToggle": {
+    "switchToLight": "Switch to light mode",
+    "switchToDark": "Switch to dark mode"
+  },
+  "topBar": {
+    "openNavigation": "Open navigation",
+    "menu": "Menu",
+    "collapseSidebar": "Collapse sidebar",
+    "expandSidebar": "Expand sidebar"
+  },
+  "sidebar": {
+    "promo": {
+      "member": {
+        "title": "Expand Your Knowledge",
+        "description": "Explore thousands of books and resources.",
+        "cta": "Browse Books"
+      },
+      "staff": {
+        "title": "Keep the Shelves Moving",
+        "description": "Issue and return copies, and keep the catalogue current.",
+        "cta": "View Library Activity"
+      },
+      "admin": {
+        "title": "Know Your Numbers",
+        "description": "Track revenue, expenses, and membership growth.",
+        "cta": "View Payments"
+      },
+      "itHead": {
+        "title": "Keep Systems Healthy",
+        "description": "Review access requests and platform activity.",
+        "cta": "Open IT Overview"
+      },
+      "guardian": {
+        "title": "Follow Their Progress",
+        "description": "See what your children are reading this month.",
+        "cta": "View Reading Progress"
+      }
+    }
+  },
+  "footer": {
+    "copyright": "© {{year}} Community Reading Club & Library Management Platform"
+  },
+  "auth": {
+    "login": {
+      "title": "Log in",
+      "continueAs": "Continue as {{role}}",
+      "roles": {
+        "admin": "Admin",
+        "member": "Member",
+        "manager": "Manager",
+        "it-head": "IT Head",
+        "guardian": "Guardian",
+        "librarian": "Librarian"
+      },
+      "or": "Or",
+      "email": "Email",
+      "password": "Password",
+      "logInWithPassword": "Log in",
+      "continueWithGmail": "Continue with Gmail",
+      "orPreviewRole": "Or preview a role",
+      "errors": {
+        "password": "Password is required."
+      },
+      "forgotPassword": "Forgot password?"
+    },
+    "register": {
+      "title": "Create an account",
+      "fullName": "Full name",
+      "email": "Email",
+      "phoneNumber": "Phone number",
+      "phoneNumberPlaceholder": "9876543210",
+      "password": "Password",
+      "confirmPassword": "Confirm password",
+      "membershipPlan": "Membership plan",
+      "terms": "I agree to the terms of service",
+      "createAccount": "Create account",
+      "alreadyHaveAccount": "Already have an account?",
+      "logIn": "Log in",
+      "errors": {
+        "name": "Name must be 2–100 characters and contain only letters.",
+        "email": "Enter a valid email address (e.g. name@example.com).",
+        "phoneNumber": "Enter a valid 10-digit Indian mobile number (e.g. 9876543210).",
+        "password": "Password must be 8+ characters with uppercase, lowercase, a number, and a special character.",
+        "confirmPassword": "Passwords do not match.",
+        "terms": "You must accept the terms to continue."
+      }
+    },
+    "forgotPassword": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email and we'll send you a link to reset it.",
+      "submit": "Send Reset Link",
+      "successTitle": "Check your email",
+      "successDescription": "If an account exists for that email, we've sent a link to reset your password.",
+      "backToLogin": "Back to log in"
+    },
+    "resetPassword": {
+      "title": "Reset your password",
+      "subtitle": "Choose a new password for your account.",
+      "submit": "Reset Password",
+      "successToast": "Password reset. Please log in with your new password.",
+      "invalidTitle": "Invalid or expired link",
+      "invalidDescription": "This password reset link is invalid or has expired. Request a new one to continue.",
+      "requestNewLink": "Request a new link"
+    }
+  },
+  "notFound": {
+    "title": "404",
+    "message": "This page doesn't exist.",
+    "backHome": "Back home"
+  },
+  "payment": {
+    "pageTitle": "Payment",
+    "defaultLabel": "Library payment",
+    "amountDue": "Amount due",
+    "payWithRazorpay": "Pay with Razorpay",
+    "payOnlineToast": "Processing ₹{{amount}} payment",
+    "paymentSuccessToast": "Payment successful",
+    "razorpayLoadError": "Couldn't load the payment gateway — check your connection and try again.",
+    "payAtLibraryTitle": "Prefer to pay in person?",
+    "payAtLibraryDescription": "Skip online payment — visit the counter and pay the manager in cash.",
+    "contactManager": "Notify the Manager",
+    "payAtLibraryToast": "The manager has been notified — pay in cash at the counter",
+    "renewingCurrentPlan": "Upgrading your current plan.",
+    "changePlan": "Change plan",
+    "secureNotice": "Payments are processed securely",
+    "coupon": {
+      "placeholder": "Have a coupon code?",
+      "apply": "Apply",
+      "applied": "Coupon {{code}} applied — {{percent}}% off",
+      "remove": "Remove"
+    }
+  },
+  "feedback": {
+    "error": {
+      "title": "Something went wrong",
+      "description": "An unexpected error occurred. Please try again.",
+      "retry": "Try again"
+    }
+  },
+  "admin": {
+    "pageTitle": "Admin Dashboard",
+    "pageDescription": "Business performance, cash flow, and platform management",
+    "dashboard": {
+      "revenueOverview": "Revenue Overview",
+      "revenuePeriod": {
+        "label": "Revenue period",
+        "last3": "Last 3 Months",
+        "last6": "Last 6 Months"
+      }
+    },
+    "recentActivities": {
+      "title": "Recent Activities",
+      "empty": "No recent activity yet.",
+      "viewAll": "View all activities",
+      "genericAction": "{{action}}"
+    },
+    "members": {
+      "pageTitle": "Members",
+      "pageDescription": "All registered accounts, their plans, activity, and standing.",
+      "searchPlaceholder": "Search by name or email",
+      "roleSelectLabel": "Change role for {{name}}",
+      "table": {
+        "member": "Member",
+        "role": "Role",
+        "lastPayment": "Last Payment",
+        "plan": "Plan",
+        "progress": "Reading Progress",
+        "reported": "Reported",
+        "joined": "Joined",
+        "events": "Event Participation",
+        "status": "Status"
+      },
+      "noPayment": "No payments yet",
+      "noPlan": "No active plan",
+      "planExpired": "Expired {{date}}",
+      "planActiveUntil": "Active until {{date}}",
+      "booksReading": "{{count}} reading",
+      "booksCompleted": "{{count}} completed",
+      "reportedYes": "Reported",
+      "reportedNo": "Clear",
+      "eventsCount": "{{count}} events",
+      "actions": {
+        "activate": "Activate",
+        "deactivate": "Deactivate"
+      },
+      "confirmRole": {
+        "title": "Change member role?",
+        "description": "Change {{name}} from {{currentRole}} to {{nextRole}}? Their access will change immediately.",
+        "confirm": "Change role"
+      },
+      "confirmDeactivate": {
+        "title": "Deactivate member?",
+        "description": "Deactivate {{name}}? They will immediately lose access to the application."
+      },
+      "toasts": {
+        "roleUpdated": "{{name}} is now {{role}}",
+        "activated": "{{name}} activated",
+        "deactivated": "{{name}} deactivated"
+      },
+      "empty": {
+        "title": "No members found",
+        "description": "Try a different search term."
+      },
+      "filters": {
+        "roleLabel": "Role",
+        "roleAll": "All roles",
+        "statusLabel": "Status",
+        "statusAll": "All statuses",
+        "statusActive": "Active",
+        "statusInactive": "Inactive"
+      },
+      "sort": {
+        "label": "Sort by",
+        "joinedDesc": "Newest joined",
+        "joinedAsc": "Oldest joined",
+        "nameAsc": "Name (A-Z)",
+        "nameDesc": "Name (Z-A)",
+        "roleAsc": "Role"
+      }
+    },
+    "stats": {
+      "revenueMtd": "Revenue (MTD)",
+      "expensesMtd": "Expenses (MTD)",
+      "netProfitMtd": "Net Profit (MTD)",
+      "totalMembers": "Total Members"
+    },
+    "seatStatus": {
+      "title": "Live Seat Status"
+    },
+    "seatOccupancy": {
+      "title": "Seat Filling Frequency (Yesterday)",
+      "summary": "Peak at {{peakHour}} ({{peakPercent}}% full) · {{avgPercent}}% average occupancy",
+      "zeroSummary": "No seats were occupied yesterday.",
+      "emptyTitle": "No occupancy data yet",
+      "emptyDescription": "Seat filling data will show up here once today's slots are recorded."
+    },
+    "cashFlow": {
+      "title": "Cash Flow Breakdown",
+      "total": "Total Revenue",
+      "sources": {
+        "membershipFees": "Membership Fees",
+        "eventTickets": "Event Ticket Sales",
+        "finesCollected": "Fines Collected",
+        "donationsValue": "Donations (Est. Value)"
+      }
+    },
+    "budget": {
+      "title": "Budget & Expenses",
+      "overallLabel": "Overall Spend",
+      "spentOfBudgeted": "{{spent}} of {{budgeted}} spent",
+      "remaining": "{{amount}} remaining",
+      "overBudgetBy": "{{amount}} over budget",
+      "logExpense": "Log Expense",
+      "logExpenseToast": "Logging an expense for {{category}}",
+      "categoryLabel": "Category",
+      "amountLabel": "Amount",
+      "status": {
+        "nearLimit": "Near limit",
+        "overBudget": "Over budget"
+      },
+      "categories": {
+        "staffSalaries": "Staff Salaries",
+        "bookProcurement": "Book Procurement",
+        "utilities": "Utilities & Maintenance",
+        "marketing": "Marketing"
+      }
+    },
+    "pendingRequests": {
+      "title": "Membership & Billing Requests",
+      "types": {
+        "membershipRenewal": "Membership Upgrade",
+        "refundRequest": "Refund Request",
+        "feeWaiverRequest": "Fee Waiver Request"
+      },
+      "from": "From {{name}}",
+      "rejectToast": "Rejecting request from {{name}}",
+      "approveToast": "Approving request from {{name}}",
+      "confirmApproveTitle": "Approve this request?",
+      "confirmRejectTitle": "Reject this request?",
+      "confirmDescription": "{{name}}'s request for {{amount}}. This action cannot be undone.",
+      "filters": {
+        "statusLabel": "Status",
+        "statusOptions": {
+          "all": "All",
+          "pending": "Pending",
+          "approved": "Approved",
+          "rejected": "Rejected"
+        },
+        "typeLabel": "Type",
+        "typeOptions": {
+          "all": "All"
+        }
+      },
+      "sort": {
+        "newestFirst": "Newest First",
+        "oldestFirst": "Oldest First",
+        "amountHighToLow": "Amount High to Low",
+        "amountLowToHigh": "Amount Low to High",
+        "memberName": "Member Name"
+      }
+    },
+    "waiveFine": {
+      "title": "Waive Fine",
+      "memberLabel": "Member",
+      "memberSearchPlaceholder": "Search members by name or email",
+      "changeMember": "Change",
+      "noMembersFound": "No members found",
+      "amountLabel": "Amount",
+      "reasonLabel": "Reason",
+      "submit": "Waive Fine",
+      "successToast": "Waived a fine for {{name}}"
+    },
+    "pendingLibraryReviews": {
+      "title": "Pending Library Reviews",
+      "empty": "No reviews awaiting approval.",
+      "from": "From {{name}}",
+      "approveToast": "Approved {{name}}'s review — now live on the homepage",
+      "rejectToast": "Rejected {{name}}'s review",
+      "confirmApproveTitle": "Approve this review?",
+      "confirmRejectTitle": "Reject this review?",
+      "confirmDescription": "{{name}}'s review. Approving features it in 'What Our Members Say' on the homepage."
+    },
+    "auditLog": {
+      "title": "Financial Activity Log",
+      "empty": "No financial activity yet.",
+      "actions": {
+        "expenseApproved": "Approved {{amount}} expense for {{category}}",
+        "refundIssued": "Issued a {{amount}} refund to {{name}}",
+        "refundRejected": "Rejected a {{amount}} refund request from {{name}}",
+        "feeWaived": "Waived a {{amount}} fee for {{name}}",
+        "feeWaiverRejected": "Rejected a {{amount}} fee waiver request from {{name}}",
+        "pricingPlanUpdated": "Updated the {{plan}} plan price to {{amount}}",
+        "announcementSent_one": "Sent an announcement to {{count}} member",
+        "announcementSent_other": "Sent an announcement to {{count}} members",
+        "couponGenerated": "Generated coupon {{code}} ({{percent}}% off, {{maxUses}} uses)"
+      },
+      "filters": {
+        "typeLabel": "Type",
+        "typeOptions": {
+          "all": "All",
+          "credits": "Credits",
+          "debits": "Debits",
+          "refunds": "Refunds"
+        }
+      },
+      "sort": {
+        "newestFirst": "Newest First",
+        "oldestFirst": "Oldest First"
+      }
+    },
+    "reports": {
+      "title": "Reports",
+      "items": {
+        "revenueByPlan": "Revenue by Membership Plan",
+        "profitAndLoss": "Profit & Loss Summary",
+        "expenseBreakdown": "Expense Breakdown",
+        "membershipGrowth": "Membership Growth"
+      },
+      "descriptions": {
+        "revenueByPlan": "Revenue generated by each membership plan",
+        "profitAndLoss": "Income, expenses and net profit summary",
+        "expenseBreakdown": "Detailed breakdown of all library expenses",
+        "membershipGrowth": "Member signups, renewals and growth trends"
+      },
+      "empty": "No data yet.",
+      "paymentsCount_one": "{{count}} payment",
+      "paymentsCount_other": "{{count}} payments",
+      "profitAndLossLabels": {
+        "revenue": "Revenue",
+        "expenses": "Expenses",
+        "netProfit": "Net Profit",
+        "totalRevenue": "Total Revenue (6 mo)",
+        "totalExpenses": "Total Expenses (6 mo)",
+        "totalNetProfit": "Total Net Profit (6 mo)"
+      },
+      "membershipGrowthLabels": {
+        "newMembers_one": "{{count}} new member",
+        "newMembers_other": "{{count}} new members",
+        "totalMembers_one": "{{count}} total member",
+        "totalMembers_other": "{{count}} total members"
+      },
+      "filters": {
+        "categoryLabel": "Category",
+        "categoryOptions": {
+          "all": "All",
+          "financial": "Financial",
+          "membership": "Membership"
+        }
+      },
+      "sort": {
+        "nameAsc": "Name A–Z",
+        "nameDesc": "Name Z–A"
+      }
+    },
+    "quickActions": {
+      "logExpense": "Log Expense",
+      "adjustPricing": "Adjust Pricing Plans",
+      "inviteMember": "Invite Member",
+      "announcement": "Announcement",
+      "viewGrowthReport": "View Growth Report",
+      "waiveFine": "Waive Fine",
+      "reviewLibraryReviews": "Review Library Reviews"
+    },
+    "inviteMember": {
+      "title": "Invite Member",
+      "fullNameLabel": "Full name",
+      "emailLabel": "Email",
+      "phoneLabel": "Phone number",
+      "passwordLabel": "Initial password",
+      "passwordHint": "Share this password with the new member — there's no email invite yet, so this is how they'll log in.",
+      "submit": "Create Account",
+      "successToast": "Created an account for {{name}}",
+      "errors": {
+        "name": "Enter a full name",
+        "email": "Enter a valid email address",
+        "phone": "Enter a valid phone number",
+        "password": "Password must be at least 8 characters and include a letter and a number"
+      }
+    },
+    "announcement": {
+      "title": "Send Announcement",
+      "description": "This message is sent as a notification to every member.",
+      "messageLabel": "Message",
+      "submit": "Send Announcement",
+      "successToast_one": "Announcement sent to {{count}} member",
+      "successToast_other": "Announcement sent to {{count}} members"
+    },
+    "adjustPricing": {
+      "title": "Adjust Pricing Plans",
+      "monthsLabel_one": "{{count}} month",
+      "monthsLabel_other": "{{count}} months",
+      "priceLabel": "Price (₹)",
+      "discountLabel": "Discount (%)",
+      "save": "Save",
+      "savedToast": "Updated the {{plan}} plan",
+      "couponGenerator": {
+        "title": "Discount Coupon Generator",
+        "description": "Generate a code that gives a discount to a set number of people.",
+        "discountLabel": "Discount (%)",
+        "maxUsesLabel": "No. of persons",
+        "generate": "Generate",
+        "generatedToast": "Generated coupon {{code}}",
+        "summary": "{{percent}}% off · used {{used}}/{{max}}"
+      }
+    },
+    "payments": {
+      "pageTitle": "Payments",
+      "pageDescription": "Every payment on record, across all members.",
+      "searchPlaceholder": "Search by member name or email",
+      "monthFilter": "Filter by month",
+      "table": {
+        "member": "Member",
+        "email": "Email",
+        "amount": "Amount",
+        "label": "Description",
+        "status": "Status",
+        "date": "Date"
+      },
+      "empty": {
+        "title": "No payments found",
+        "description": "Try a different search, or check back once members start paying."
+      }
+    }
+  },
+  "itHead": {
+    "pageTitle": "IT Head Dashboard",
+    "pageDescription": "Access control, issue resolution, book records, and fee status",
+    "stats": {
+      "activeMembers": "Active Members",
+      "openIssues": "Open Issues",
+      "pendingPermissions": "Pending Permissions",
+      "feesOutstanding": "Fees Outstanding",
+      "lateFinesOutstanding": "Late Fines Outstanding",
+      "fromYesterday": "from yesterday",
+      "noChange": "No change"
+    },
+    "feeCollections": {
+      "title": "Fee Collections Overview",
+      "collected": "Collected",
+      "pending": "Pending"
+    },
+    "issueResolutionOverview": {
+      "title": "Issue Resolution Overview",
+      "resolved": "Resolved",
+      "open": "Open",
+      "other": "Other"
+    },
+    "systemActivity": {
+      "title": "System Activity",
+      "logins": "Logins",
+      "accessChanges": "Access Changes",
+      "permissionsUpdated": "Permissions Updated",
+      "loginsChartLabel": "Logins over the last 7 days"
+    },
+    "accessByRole": {
+      "title": "Access by Role",
+      "totalMembers": "{{count}} Total Members",
+      "total": "Total",
+      "roles": {
+        "member": "Members",
+        "guardian": "Guardians",
+        "manager": "Managers",
+        "librarian": "Librarians",
+        "it-head": "IT Admins",
+        "admin": "Admins"
+      }
+    },
+    "feeStatusSummary": {
+      "title": "Fee Status Summary",
+      "totalOutstanding": "Total Outstanding",
+      "currentOutstanding": "Current Outstanding",
+      "lateFines": "Late Fines",
+      "topOverdue": "Top Overdue Members",
+      "empty": "No members currently overdue."
+    },
+    "systemAlerts": {
+      "title": "System Alerts"
+    },
+    "accessControl": {
+      "title": "Access Control",
+      "empty": "No members or managers to show yet.",
+      "status": {
+        "active": "Active",
+        "deactivated": "Deactivated"
+      },
+      "pendingPermission": "Requested: {{permission}}",
+      "grantAccess": "Grant Access",
+      "deny": "Deny",
+      "deactivate": "Deactivate",
+      "reactivate": "Reactivate",
+      "grantedToast": "Granted {{name}}'s request",
+      "deniedToast": "Denied {{name}}'s request",
+      "deactivateToast": "Deactivated {{name}}",
+      "reactivateToast": "Reactivated {{name}}",
+      "filters": {
+        "statusLabel": "Status",
+        "all": "All",
+        "active": "Active",
+        "disabled": "Disabled",
+        "roleLabel": "Role"
+      },
+      "sort": {
+        "nameAsc": "Name A–Z",
+        "nameDesc": "Name Z–A",
+        "newestFirst": "Newest First"
+      }
+    },
+    "issueResolution": {
+      "title": "Issue Resolution",
+      "empty": "No support tickets yet.",
+      "categories": {
+        "bookReservation": "Book Reservation",
+        "payment": "Payment",
+        "seatBooking": "Seat Booking",
+        "harassment": "Harassment",
+        "offlineLibrary": "Offline Library",
+        "attendance": "Attendance",
+        "other": "Other"
+      },
+      "status": {
+        "open": "Open",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "from": "Reported by {{name}}",
+      "resolve": "Resolve",
+      "resolutionNoteLabel": "Resolution note",
+      "resolveToast": "Resolved the issue from {{name}}",
+      "filters": {
+        "statusLabel": "Status",
+        "all": "All"
+      },
+      "sort": {
+        "newestFirst": "Newest First",
+        "oldestFirst": "Oldest First",
+        "category": "Category"
+      }
+    },
+    "bookRecords": {
+      "title": "Book Records",
+      "types": {
+        "lost": "Lost",
+        "donated": "Donated",
+        "purchased": "Purchased"
+      },
+      "empty": "No book record changes logged yet.",
+      "filters": {
+        "typeLabel": "Type",
+        "all": "All"
+      },
+      "sort": {
+        "newestFirst": "Newest First",
+        "oldestFirst": "Oldest First",
+        "title": "Book Title"
+      }
+    },
+    "feeStatus": {
+      "title": "Fee Status",
+      "empty": "No outstanding fees — everyone's paid up.",
+      "dueDate": "Due {{date}}",
+      "status": {
+        "paid": "Paid",
+        "due": "Due",
+        "overdue": "Overdue"
+      },
+      "filters": {
+        "statusLabel": "Status",
+        "all": "All",
+        "pending": "Pending"
+      },
+      "sort": {
+        "amountLowToHigh": "Amount Low to High",
+        "amountHighToLow": "Amount High to Low",
+        "memberName": "Member Name"
+      }
+    },
+    "lateFines": {
+      "title": "Late Return Fines",
+      "empty": "No overdue fines right now.",
+      "borrowedBy": "Borrowed by {{name}}",
+      "dueDate": "Was due {{date}}",
+      "daysLate": "{{count}}d late",
+      "status": {
+        "paid": "Paid",
+        "unpaid": "Unpaid"
+      },
+      "sendReminder": "Send Reminder",
+      "markPaid": "Mark Paid",
+      "reminderToast": "Sent a fine reminder to {{name}}",
+      "markedPaidToast": "Marked {{name}}'s fine as paid",
+      "filters": {
+        "statusLabel": "Status",
+        "all": "All"
+      },
+      "sort": {
+        "amountLowToHigh": "Amount Low to High",
+        "amountHighToLow": "Amount High to Low",
+        "memberName": "Member Name"
+      }
+    },
+    "quickActions": {
+      "logBookChange": "Log Book Change",
+      "toasts": {
+        "loggingBookChange": "Logging a book record change"
+      }
+    },
+    "logBookChangeModal": {
+      "title": "Log Book Change",
+      "bookLabel": "Book",
+      "bookSearchPlaceholder": "Search books by title or author",
+      "noBooksFound": "No books found",
+      "changeBook": "Change",
+      "typeLabel": "Record type",
+      "noteLabel": "Note (optional)",
+      "submit": "Log Record",
+      "successToast": "Logged a {{type}} record for {{book}}"
+    },
+    "reportsPage": {
+      "pageTitle": "Financial Activity & Reports",
+      "pageDescription": "Track financial activity, monitor expenses, and generate library reports.",
+      "kpis": {
+        "totalIncome": "Total Income",
+        "totalExpenses": "Total Expenses",
+        "netBalance": "Net Balance",
+        "pendingApprovals": "Pending Approvals"
+      },
+      "financialActivityLog": {
+        "title": "Financial Activity Log",
+        "subtitle": "Track all financial activities and approvals",
+        "status": {
+          "all": "All",
+          "approved": "Approved",
+          "waived": "Waived",
+          "pending": "Pending",
+          "rejected": "Rejected"
+        },
+        "sort": {
+          "newestFirst": "Newest First",
+          "oldestFirst": "Oldest First"
+        }
+      },
+      "reportsList": {
+        "title": "Reports",
+        "subtitle": "Generate and view system reports",
+        "sort": {
+          "nameAsc": "Name A-Z",
+          "nameDesc": "Name Z-A"
+        },
+        "lastGenerated": "Last generated: {{date}} · {{frequency}}",
+        "items": {
+          "expenseBreakdown": {
+            "name": "Expense Breakdown",
+            "description": "Detailed breakdown of all library expenses"
+          },
+          "membershipGrowth": {
+            "name": "Membership Growth",
+            "description": "Member signups, renewals and growth trends"
+          },
+          "profitAndLoss": {
+            "name": "Profit & Loss Summary",
+            "description": "Income, expenses and net profit summary"
+          },
+          "revenueByPlan": {
+            "name": "Revenue by Membership Plan",
+            "description": "Revenue generated by each membership plan"
+          },
+          "bookProcurement": {
+            "name": "Book Procurement Report",
+            "description": "Books purchased, vendors and costs"
+          },
+          "accessControl": {
+            "name": "Access Control Report",
+            "description": "User access changes and permission logs"
+          }
+        }
+      },
+      "financialTrend": {
+        "title": "Financial Trend",
+        "subtitle": "Income vs Expenses · Last 6 Months",
+        "income": "Income",
+        "expenses": "Expenses"
+      },
+      "expenseBreakdownChart": {
+        "title": "Expense Breakdown",
+        "totalLabel": "Total Expenses",
+        "categories": {
+          "bookProcurement": "Book Procurement",
+          "operations": "Operations",
+          "marketing": "Marketing",
+          "technology": "Technology",
+          "other": "Other"
+        }
+      },
+      "insights": {
+        "title": "Financial Insights",
+        "highestExpense": {
+          "label": "Highest Expense",
+          "value": "Book Procurement",
+          "description": "₹48,500 this month"
+        },
+        "pendingApproval": {
+          "label": "Pending Approval",
+          "value": "₹680",
+          "description": "Stationery expense awaiting approval"
+        },
+        "financialHealth": {
+          "label": "Financial Health",
+          "value": "Healthy",
+          "description": "Income currently exceeds expenses by 33%."
+        }
+      }
+    }
+  },
+  "guardian": {
+    "pageTitle": "Guardian Dashboard",
+    "pageDescription": "Track your children's library activity and manage their accounts",
+    "stats": {
+      "linkedChildren": "Linked Children",
+      "currentlyInLibrary": "Currently In Library",
+      "booksBorrowed": "Books Borrowed",
+      "totalDues": "Total Dues"
+    },
+    "presence": {
+      "title": "Library Check-In / Check-Out",
+      "emptyTitle": "No children linked yet",
+      "emptyDescription": "Link a child's membership to see their library activity here.",
+      "status": {
+        "inLibrary": "In Library",
+        "left": "Left"
+      },
+      "checkedInAt": "Checked in at {{time}}",
+      "leftAt": "Left at {{time}}"
+    },
+    "borrowedBooks": {
+      "title": "Borrowed Books",
+      "emptyTitle": "No books borrowed",
+      "emptyDescription": "Books your children borrow will show up here.",
+      "dueOn": "Due {{date}}",
+      "status": {
+        "onTime": "On Time",
+        "dueSoon": "Due Soon",
+        "overdue": "Overdue"
+      }
+    },
+    "subscription": {
+      "title": "Subscription & Fines",
+      "expiresOn": "Expires {{date}}",
+      "noSubscription": "No active subscription",
+      "fineOwed": "Fine owed: {{amount}}",
+      "noFine": "No outstanding fine",
+      "renew": "Upgrade",
+      "payFine": "Pay Fine",
+      "renewToast": "Upgrading {{name}}'s subscription",
+      "payFineToast": "Paying {{amount}} fine for {{name}}",
+      "viewFineDetails": "View Details",
+      "viewPaymentHistory": "Payment History",
+      "fineDetails": {
+        "title": "Fine Details",
+        "reason": "Reason",
+        "amountDue": "Amount Due",
+        "payBy": "Pay By",
+        "escalationNotice": "If unpaid after the due date, this fine increases by {{daily}} per day, up to {{escalated}}.",
+        "reasons": {
+          "lateReturn": "Late book return"
+        }
+      },
+      "emptyTitle": "No children linked yet.",
+      "emptyDescription": "Ask your child to link your email from their Settings page."
+    },
+    "paymentHistory": {
+      "title": "Payment History",
+      "empty": {
+        "title": "No payments yet",
+        "description": "Payments made for this child will show up here."
+      }
+    },
+    "seatReservation": {
+      "title": "Reserve a Seat for Your Child",
+      "selectChild": "Select child",
+      "selectChildPlaceholder": "Choose a child",
+      "selectPrompt": "Select an available seat to continue.",
+      "selected": "Seat {{seatId}} selected for {{name}}",
+      "confirmButton": "Confirm Booking",
+      "confirmToast": "Booking seat {{seatId}} for {{name}}",
+      "notifyButton": "Notify Me When Available",
+      "notifySet": "We'll notify you when this seat frees up",
+      "notifyToast": "We'll notify you when seat {{seatId}} is available for {{name}}"
+    },
+    "quickActions": {
+      "payAllFines": "Pay All Fines",
+      "renewSubscription": "Upgrade Subscription",
+      "toasts": {
+        "payingAllFines": "Paying all outstanding fines",
+        "renewingSubscription": "Upgrading subscription"
+      },
+      "contactStaff": "Contact Staff"
+    }
+  },
+  "dashboard": {
+    "welcomeBack": "Welcome back, {{name}}",
+    "subtitle": "{{plan}} · Here's what's happening with your library",
+    "membershipPlans": {
+      "premium": "Premium Member",
+      "standard": "Standard Member",
+      "basic": "Basic Member"
+    },
+    "subscription": {
+      "title": "Your Membership",
+      "expiresOn": "Expires {{date}}",
+      "noPlan": "You don't have an active plan yet",
+      "fineOwed": "Fine owed: {{amount}}",
+      "noFine": "No outstanding fine",
+      "outstandingFine": "Outstanding Fine",
+      "statusActive": "Active",
+      "statusInactive": "Inactive",
+      "renew": "Upgrade",
+      "viewPlans": "View Plans",
+      "renewalPaymentLabel": "{{plan}} — Upgrade",
+      "payFine": "Pay Fine",
+      "viewFineDetails": "View Details",
+      "fineDetails": {
+        "title": "Fine Details",
+        "reason": "Reason",
+        "amountDue": "Amount Due",
+        "payBy": "Pay By",
+        "escalationNotice": "If unpaid after the due date, this fine increases by {{daily}} per day, up to {{escalated}}.",
+        "reasons": {
+          "lateReturn": "Late book return"
+        }
+      }
+    },
+    "stats": {
+      "booksBorrowed": "Books Borrowed",
+      "booksBorrowedSubtitle": "Currently checked out",
+      "booksReserved": "Books Reserved",
+      "booksReservedSubtitle": "Ready when you are",
+      "seatBookings": "Seat Bookings",
+      "seatBookingsSubtitle": "Upcoming bookings",
+      "readingStreakSubtitle": "Keep it going!",
+      "readingPoints": "Reading Points"
+    },
+    "statModal": {
+      "booksBorrowed": {
+        "emptyTitle": "No books borrowed",
+        "emptyDescription": "Books you've checked out will show up here."
+      },
+      "booksReserved": {
+        "emptyTitle": "No active reservations",
+        "emptyDescription": "Books you reserve will show up here while you wait."
+      },
+      "seatBookings": {
+        "emptyTitle": "No seat bookings",
+        "emptyDescription": "Seats you book will show up here.",
+        "seatLabel": "Seat {{seat}}",
+        "pastNote": "{{count}} earlier booking(s) aren't shown — seat booking only covers today and the next 2 days."
+      },
+      "readingStreak": {
+        "longest": "Longest streak: {{count}} day(s)",
+        "viewProgress": "View Reading Progress"
+      }
+    },
+    "booksDueSoon": {
+      "title": "Books Due Soon",
+      "emptyTitle": "Nothing due soon",
+      "emptyDescription": "You're all caught up.",
+      "due": "Due {{date}} · {{days}}"
+    },
+    "currentlyBorrowed": {
+      "title": "Currently Borrowed"
+    },
+    "readingProgress": {
+      "title": "Reading Progress",
+      "pagesOf": "{{pagesRead}} of {{totalPages}} pages"
+    },
+    "monthlyChallenge": {
+      "title": "Monthly Challenge",
+      "booksOf": "{{current}} of {{target}} books"
+    },
+    "quickActions": {
+      "title": "Quick Actions",
+      "browseBooks": "Browse Books",
+      "bookASeat": "Book a Seat",
+      "viewReservations": "View Reservations",
+      "writeReview": "Write Library Review"
+    },
+    "notifications": {
+      "title": "Recent Notifications",
+      "reservationReady": "Your reservation for \"{{book}}\" is ready for pickup",
+      "dueInDays": "\"{{book}}\" is due in {{count}} days",
+      "achievementEarned": "You earned the \"{{achievement}}\" achievement"
+    },
+    "upcomingEvents": {
+      "title": "Upcoming Events",
+      "loading": "Loading upcoming events",
+      "loadErrorTitle": "Upcoming events unavailable",
+      "loadError": "We couldn't load upcoming events.",
+      "noEvents": "No upcoming events."
+    }
+  },
+  "managerDashboard": {
+    "pageTitle": "Manager Dashboard",
+    "pageDescription": "Walk-in seat and book assistance, plus new member registrations",
+    "stats": {
+      "seatsBookedToday": "Seats Booked Today",
+      "booksIssuedToday": "Books Issued Today",
+      "newRegistrationsToday": "New Registrations Today",
+      "pendingTasks": "Pending Tasks"
+    },
+    "libraryActivity": {
+      "title": "Library Activity (Last 7 Days)",
+      "issued": "Books Issued",
+      "returned": "Books Returned"
+    },
+    "mostBorrowedBooks": {
+      "title": "Most Borrowed Books",
+      "empty": "No books borrowed yet in this period.",
+      "axisLabel": "Number of Times Borrowed",
+      "periodLabel": "Time period",
+      "thisMonth": "This Month",
+      "last3Months": "Last 3 Months",
+      "last6Months": "Last 6 Months",
+      "seeMore": "See more"
+    },
+    "memberActivity": {
+      "title": "Member Activity (Last 6 Months)",
+      "newMembers": "New Members",
+      "activeMembers": "Active Members"
+    },
+    "seatUtilization": {
+      "title": "Seat Utilization (Today)",
+      "peakTime": "Peak Time",
+      "averageUtilization": "{{percent}}% average utilization"
+    },
+    "footfall": {
+      "title": "Footfall Analytics",
+      "periodLabel": "Range",
+      "last7Days": "Last 7 Days",
+      "last30Days": "Last 30 Days",
+      "last3Months": "Last 3 Months",
+      "visitsByDay": "Visits by day",
+      "peakHours": "Peak Hours",
+      "avgVisitDuration": "Avg. Visit Duration",
+      "avgVisitDurationValue": "{{minutes}} min",
+      "noDuration": "Not enough data yet",
+      "busiestDay": "Busiest Day",
+      "quietestDay": "Quietest Day",
+      "empty": "No visits recorded in this range."
+    },
+    "revenue": {
+      "title": "Revenue Overview",
+      "total": "Total Revenue",
+      "thisMonth": "This Month",
+      "avgMonthly": "Avg. Monthly"
+    },
+    "overdueFines": {
+      "title": "Overdue & Fines Overview",
+      "totalOverdue": "Total Overdue Books",
+      "finesGenerated": "Fines Generated",
+      "finesCollected": "Fines Collected",
+      "collectionRate": "Collection Rate"
+    },
+    "aiInsights": {
+      "heading": "AI Insights"
+    },
+    "demandForecast": {
+      "title": "Demand Forecast",
+      "subtitle": "Books trending up in loans and reservations over the last 30 days.",
+      "emptyTitle": "No trending demand right now",
+      "emptyDescription": "Come back once there's more recent borrowing activity to compare.",
+      "level": {
+        "high": "High demand",
+        "medium": "Rising demand"
+      }
+    },
+    "lateReturnRisk": {
+      "title": "Late-Return Risk",
+      "subtitle": "Active loans most likely to come back late, based on borrowing history.",
+      "emptyTitle": "No active loans to assess",
+      "emptyDescription": "Risk scores will appear here once there are active loans.",
+      "borrower": "{{name}}",
+      "dueDate": "due {{date}}",
+      "level": {
+        "high": "High risk ({{score}}%)",
+        "medium": "Medium risk ({{score}}%)",
+        "low": "Low risk ({{score}}%)"
+      }
+    },
+    "statModal": {
+      "seatsBookedToday": {
+        "description": "Walk-in seats booked at the counter today. Book another one for a member from here."
+      },
+      "booksIssuedToday": {
+        "emptyTitle": "No books issued yet today",
+        "emptyDescription": "Books issued to members at the counter today will show up here.",
+        "returnedNote": "{{count}} more issued today already came back and no longer show as active."
+      },
+      "newRegistrationsToday": {
+        "description": "New members registered at the counter today. Register another walk-in from here."
+      },
+      "pendingTasks": {
+        "total": "Total pending tasks",
+        "other": "Other pending items",
+        "otherHint": "Includes open support tickets and billing requests awaiting admin approval."
+      }
+    },
+    "walkIns": {
+      "title": "Walk-In Assistance",
+      "emptyTitle": "No walk-in requests",
+      "emptyDescription": "Members who need help with a seat or book at the counter will show up here.",
+      "seatBadge": "Seat",
+      "bookBadge": "Book",
+      "requestedAt": "Requested {{time}}",
+      "bookSeat": "Book Seat",
+      "issueBook": "Issue Book",
+      "bookSeatToast": "Booking a seat for {{name}}",
+      "issueBookToast": "Issuing a book for {{name}}"
+    },
+    "registrations": {
+      "title": "New Registrations",
+      "emptyTitle": "No registration requests",
+      "emptyDescription": "New visitors waiting to register as members will show up here.",
+      "requestedAt": "Requested {{time}}",
+      "register": "Register",
+      "registerToast": "Registering {{name}} as a new member"
+    },
+    "payments": {
+      "title": "Pending Payments",
+      "emptyTitle": "No pending cash payments",
+      "emptyDescription": "Members who choose to pay at the counter will show up here.",
+      "markPaid": "Mark as Paid",
+      "markPaidToast": "Payment marked as received",
+      "sort": {
+        "newestFirst": "Newest First",
+        "oldestFirst": "Oldest First"
+      }
+    },
+    "quickActions": {
+      "bookSeatForMember": "Book Seat for Member",
+      "issueBookForMember": "Issue Book for Member",
+      "registerNewMember": "Register New Member",
+      "fileBillingRequest": "File Refund / Fee Waiver Request",
+      "requestPermission": "Request Permission",
+      "toasts": {
+        "bookingSeat": "Booking a seat for a member",
+        "issuingBook": "Issuing a book for a member",
+        "registeringMember": "Registering a new member"
+      }
+    },
+    "requestPermission": {
+      "title": "Request Permission",
+      "permissionLabel": "Permission",
+      "permissionPlaceholder": "e.g. Fine waiver approval",
+      "reasonLabel": "Reason",
+      "submit": "Send Request",
+      "successToast": "Request sent to the IT Head for approval"
+    },
+    "billingRequest": {
+      "title": "File a Billing Request",
+      "memberLabel": "Member",
+      "memberSearchPlaceholder": "Search for a member",
+      "changeMember": "Change",
+      "noMembersFound": "No members found",
+      "typeLabel": "Request type",
+      "amountLabel": "Amount (₹)",
+      "reasonLabel": "Reason",
+      "submit": "Submit Request",
+      "successToast": "Request filed for {{name}} — awaiting admin approval"
+    },
+    "registerMember": {
+      "title": "Register New Member",
+      "nameLabel": "Full name",
+      "namePlaceholder": "Member's full name",
+      "emailLabel": "Email",
+      "emailPlaceholder": "member@example.com",
+      "phoneLabel": "Phone number",
+      "phonePlaceholder": "+91 98765 43210",
+      "planLabel": "Membership plan",
+      "passwordLabel": "Initial password",
+      "passwordHint": "Set an initial password and share it with the member — they can change it later from their profile.",
+      "submit": "Register Member",
+      "successToast": "{{name}} has been registered as a new member",
+      "errors": {
+        "name": "Name is required.",
+        "email": "Enter a valid email address.",
+        "phoneNumber": "Enter a valid phone number.",
+        "password": "At least 8 characters, with an uppercase letter, a lowercase letter, a digit, and a special character."
+      }
+    },
+    "addGuardian": {
+      "title": "Add Guardian",
+      "description": "Search for an active, registered student and guardian to link their accounts.",
+      "studentEmailLabel": "Student",
+      "studentEmailPlaceholder": "Search active members by name or email",
+      "guardianEmailLabel": "Guardian",
+      "guardianEmailPlaceholder": "Search active guardians by name or email",
+      "submit": "Add Guardian",
+      "successToast": "Linked guardian {{guardianEmail}} to {{studentEmail}}",
+      "currentGuardian": "Current guardian",
+      "noGuardianYet": "This student has no guardian linked yet.",
+      "update": "Update Guardian",
+      "remove": "Remove",
+      "updatedToast": "Updated {{studentEmail}}'s guardian to {{guardianEmail}}",
+      "removedToast": "Removed the guardian linked to {{studentEmail}}",
+      "removeConfirmTitle": "Remove guardian?",
+      "removeConfirmDescription": "This unlinks {{guardianEmail}} from {{studentEmail}}. They will lose access to this student's library activity."
+    },
+    "bookSeatModal": {
+      "title": "Book a Seat for a Member",
+      "memberLabel": "Member",
+      "hourLabel": "Time slot",
+      "submit": "Book Seat",
+      "successToast": "Seat {{seatId}} booked for {{name}}"
+    },
+    "issueBookModal": {
+      "title": "Issue a Book for a Member",
+      "memberLabel": "Member",
+      "bookLabel": "Book",
+      "bookSearchPlaceholder": "Search for a book by title or author",
+      "noBooksFound": "No books found",
+      "unavailable": "no copies available",
+      "durationLabel": "Loan duration",
+      "durationOption": "{{count}} days",
+      "submit": "Issue Book",
+      "successToast": "\"{{book}}\" issued to {{name}}"
+    },
+    "pendingReservations": {
+      "title": "Pending Borrow Requests",
+      "emptyTitle": "No pending requests",
+      "emptyDescription": "Online requests to borrow a book will show up here for approval.",
+      "requestedBy": "Requested by {{name}}",
+      "durationOption": "{{count}} days",
+      "approve": "Approve",
+      "reject": "Reject",
+      "approveToast": "Approved {{name}}'s request",
+      "rejectToast": "Declined {{name}}'s request",
+      "sort": {
+        "newestFirst": "Newest First",
+        "oldestFirst": "Oldest First",
+        "bookTitle": "Book Title",
+        "memberName": "Member Name"
+      }
+    },
+    "recentNotifications": {
+      "title": "Recent Notifications",
+      "empty": "No recent notifications yet.",
+      "viewAll": "View all notifications"
+    },
+    "activeLoans": {
+      "title": "Books Out on Loan",
+      "emptyTitle": "No active loans",
+      "emptyDescription": "Books currently checked out will show up here.",
+      "borrowedBy": "Borrowed by {{name}}",
+      "dueDate": "Due back {{date}}",
+      "daysLate": "{{count}} day(s) late",
+      "sendReminder": "Send Reminder",
+      "markReturned": "Mark Returned",
+      "returnedToast": "Marked {{name}}'s book as returned",
+      "reminderToast": "Reminder sent to {{name}}",
+      "filters": {
+        "statusLabel": "Status",
+        "all": "All",
+        "dueToday": "Due Today",
+        "overdue": "Overdue",
+        "activeLoans": "Active Loans"
+      },
+      "sort": {
+        "dueDate": "Due Date",
+        "memberName": "Member Name",
+        "bookTitle": "Book Title"
+      }
+    },
+    "books": {
+      "pageTitle": "Books",
+      "pageDescription": "Check which books are on the shelf right now and when a checked-out copy is due back.",
+      "searchPlaceholder": "Search by title or author",
+      "filters": {
+        "categoryLabel": "Category",
+        "allCategories": "All",
+        "statusLabel": "Status",
+        "statusOptions": {
+          "all": "All",
+          "available": "Available",
+          "unavailable": "Unavailable (Return Date Known)",
+          "unavailable_no_date": "Unavailable (No Return Date)"
+        },
+        "sortLabel": "Sort",
+        "sortOptions": {
+          "title_asc": "Title (A-Z)",
+          "title_desc": "Title (Z-A)",
+          "copies_desc": "Most Copies Available",
+          "copies_asc": "Fewest Copies Available"
+        }
+      },
+      "table": {
+        "title": "Book",
+        "category": "Category",
+        "copies": "Copies",
+        "status": "Status"
+      },
+      "copiesAvailable": "{{available}} of {{total}} available",
+      "status": {
+        "available": "Available",
+        "unavailable": "Unavailable"
+      },
+      "expectedBack": "Expected back {{date}}",
+      "expectedBackUnknown": "No return date on file",
+      "empty": {
+        "title": "No books found",
+        "description": "Try a different title or author."
+      },
+      "addModal": {
+        "openButton": "Add Book",
+        "title": "Add a Book",
+        "titleLabel": "Title",
+        "authorLabel": "Author",
+        "categoryLabel": "Category",
+        "categoryPlaceholder": "Select a category",
+        "descriptionLabel": "Description",
+        "descriptionPlaceholder": "What's this book about?",
+        "suggestButton": "Suggest",
+        "suggestHint": "AI-drafted from the title and author — review before saving.",
+        "suggestFailed": "Couldn't generate a suggestion right now.",
+        "isbnLabel": "ISBN (optional)",
+        "publisherLabel": "Publisher (optional)",
+        "publishedYearLabel": "Published year (optional)",
+        "languageLabel": "Language (optional)",
+        "totalCopiesLabel": "Total copies",
+        "submit": "Add Book",
+        "identifyHeading": "Identify from a cover photo",
+        "identifyHint": "Upload or paste a photo of the front cover — we'll try to fill in the fields below.",
+        "uploadImage": "Upload image",
+        "pasteImageHint": "or paste an image (Ctrl+V)",
+        "identifying": "Identifying book…",
+        "identifyVerified": "Matched to a verified catalog record — review before saving.",
+        "identifyUnverified": "Filled from the cover photo only — please double-check every field.",
+        "identifyNoMatch": "Couldn't identify this book — fill in the fields manually.",
+        "identifyFailed": "Couldn't read that image right now. Try again or fill in manually.",
+        "identifyInvalidImage": "Please choose an image file.",
+        "identifyImageTooLarge": "Image must be 5 MB or smaller.",
+        "identifyRemoveImage": "Remove image"
+      }
+    },
+    "borrowHistory": {
+      "pageTitle": "Borrow History",
+      "pageDescription": "Every book loan on record — active, overdue, and returned.",
+      "table": {
+        "book": "Book",
+        "member": "Member",
+        "borrowed": "Borrowed",
+        "due": "Due",
+        "returned": "Returned",
+        "status": "Status"
+      },
+      "status": {
+        "active": "Active",
+        "overdue": "Overdue",
+        "returned": "Returned"
+      },
+      "notReturned": "Not returned",
+      "empty": {
+        "title": "No loan history",
+        "description": "Loans will show up here once books are issued to members."
+      },
+      "searchPlaceholder": "Search by book or member",
+      "filters": {
+        "statusLabel": "Status",
+        "all": "All",
+        "active": "Active",
+        "overdue": "Overdue",
+        "returned": "Returned"
+      },
+      "sort": {
+        "label": "Sort",
+        "newest": "Newest First",
+        "oldest": "Oldest First",
+        "dueSoonest": "Due Soonest",
+        "dueLatest": "Due Latest"
+      }
+    }
+  },
+  "myLoans": {
+    "pageTitle": "My Borrow History",
+    "pageDescription": "Books you've borrowed, with dates.",
+    "filters": {
+      "statusLabel": "Status",
+      "all": "All statuses",
+      "active": "Active",
+      "overdue": "Overdue",
+      "returned": "Returned"
+    },
+    "sort": {
+      "label": "Sort by",
+      "newest": "Newest first",
+      "oldest": "Oldest first",
+      "dueSoonest": "Due soonest",
+      "dueLatest": "Due latest"
+    },
+    "table": {
+      "book": "Book",
+      "borrowed": "Borrowed",
+      "due": "Due",
+      "returned": "Returned",
+      "status": "Status"
+    },
+    "status": {
+      "active": "Active",
+      "overdue": "Overdue",
+      "returned": "Returned"
+    },
+    "notReturned": "Not returned",
+    "empty": {
+      "title": "No borrowed books yet",
+      "description": "Books you borrow will show up here with their dates."
+    }
+  },
+  "landing": {
+    "hero": {
+      "badge": "Community Reading Club & Library Platform",
+      "title": "Your library, your community, all in one place.",
+      "titlePrefix": "Build Better ",
+      "titleWords": [
+        "Libraries",
+        "Communities",
+        "Learning",
+        "Reading Habits",
+        "Connections"
+      ],
+      "subtitle": "Borrow books, reserve a study seat, join a reading club, and get personalized recommendations, without the paper registers and group chats.",
+      "ctaJoin": "Join the Community",
+      "ctaBrowse": "Browse Books",
+      "imgAlt": "Illustration of students using the library's catalog, book issues, study space, and membership services",
+      "ctaContact": "Contact Us"
+    },
+    "stats": {
+      "booksAvailable": "Books Available",
+      "members": "Members",
+      "readingClubs": "Reading Clubs",
+      "eventsHosted": "Events Hosted",
+      "booksBorrowed": "Books Borrowed",
+      "studySeats": "Study Seats"
+    },
+    "preview": {
+      "title": "See your library, all in one place.",
+      "imgAlt": "Preview of the library platform dashboard"
+    },
+    "features": {
+      "headingPrefix": "Everything a",
+      "headingHighlight": "modern",
+      "headingSuffix": "library needs",
+      "subheading": "One platform for borrowing, discovery, community, and the day-to-day running of the library.",
+      "imgAlt": "Illustration of students using digital library search, borrowing, seat booking, AI recommendations, and reading challenges",
+      "items": {
+        "digitalLibrary": {
+          "title": "Digital Library",
+          "description": "Search, filter, and browse the full catalog of books, authors, and categories."
+        },
+        "qrBorrowing": {
+          "title": "QR Borrowing",
+          "description": "Scan a book's QR code to borrow or return it in seconds, no paperwork."
+        },
+        "seatBooking": {
+          "title": "Seat Booking",
+          "description": "Reserve a quiet study seat ahead of time and see live availability."
+        },
+        "readingChallenges": {
+          "title": "Reading Challenges",
+          "description": "Track your progress and earn achievements as you read more."
+        },
+        "communityDiscussions": {
+          "title": "Community Discussions",
+          "description": "Join reading clubs, share reviews, and discuss your favorite books."
+        },
+        "bookDonations": {
+          "title": "Book Donations",
+          "description": "Donate books you've finished and help grow the shared collection."
+        },
+        "analyticsDashboard": {
+          "title": "Analytics Dashboard",
+          "description": "Staff and admins get insight into trends, popular books, and usage."
+        },
+        "aiRecommendations": {
+          "title": "AI Recommendations",
+          "description": "Get personalized book suggestions from a conversational reading assistant."
+        }
+      }
+    },
+    "howItWorks": {
+      "badge": "Process",
+      "titlePrefix": "How it",
+      "titleHighlight": "works",
+      "steps": {
+        "1": {
+          "title": "Register",
+          "description": "Create a free membership in under a minute."
+        },
+        "2": {
+          "title": "Search Books",
+          "description": "Find titles by category, author, or mood."
+        },
+        "3": {
+          "title": "Borrow / Reserve",
+          "description": "Pick up a copy or reserve one that's checked out."
+        },
+        "4": {
+          "title": "Read & Participate",
+          "description": "Track progress and join the community around it."
+        }
+      },
+      "imgAlt": {
+        "1": "Screen preview of creating a free membership account",
+        "2": "Screen preview of searching books by category, author, or mood",
+        "3": "Two people confirming a book reservation at the library desk",
+        "4": "Screen preview of reading streaks, badges, and community events"
+      },
+      "community": {
+        "headingPrefix": "Together, we build a stronger",
+        "headingHighlight": "reading community.",
+        "subheading": "Read • Learn • Connect",
+        "memberCount": "2K+",
+        "memberCaption": "2K+ members and growing!"
+      }
+    },
+    "mood": {
+      "heading": "What are you in the mood to read?",
+      "subheading": "Pick a mood and see a preview of what our recommendation engine would suggest.",
+      "ariaLabel": "Reading moods",
+      "imgAlt": "Illustration of a student surrounded by book recommendations for different reading moods",
+      "moods": {
+        "happy": "Happy",
+        "relaxed": "Relaxed",
+        "curious": "Curious",
+        "motivated": "Motivated",
+        "studyMode": "Study Mode"
+      },
+      "captions": {
+        "happy": "Feel-Good Reads",
+        "relaxed": "Peaceful Reads",
+        "curious": "Explore & Discover",
+        "motivated": "Build & Grow",
+        "studyMode": "Focus & Learn"
+      }
+    },
+    "seatAvailability": {
+      "heading": "Live Seat Availability",
+      "subheading": "See real-time seat availability across all study spaces. Find the perfect spot, instantly.",
+      "live": "Live",
+      "updatedJustNow": "Updated just now",
+      "youAreHere": "You are here",
+      "floorPlanAlt": "Illustration of a library floor plan with a quiet study row, a collaborative table, a reading lounge, and a computer lab, with seats color-coded by availability",
+      "available": "Available",
+      "availableSub": "Ready to book",
+      "reserved": "Reserved",
+      "reservedSub": "Temporarily held",
+      "occupied": "Occupied",
+      "occupiedSub": "In use now",
+      "zones": {
+        "quiet": "Quiet Zone",
+        "collaborative": "Collaborative Zone",
+        "readingLounge": "Reading Lounge",
+        "computerLab": "Computer Lab"
+      },
+      "features": {
+        "realTimeUpdates": {
+          "title": "Real-time Updates",
+          "description": "Live tracking of every seat across the library"
+        },
+        "smartReservations": {
+          "title": "Smart Reservations",
+          "description": "Reserve your seat in advance and get instant confirmation"
+        },
+        "betterExperience": {
+          "title": "Better Study Experience",
+          "description": "Choose the right environment for your best focus"
+        }
+      },
+      "cta": {
+        "title": "Find your perfect study space",
+        "description": "Filter by zone, floor, or seat type and book in seconds.",
+        "button": "Explore All Spaces"
+      },
+      "booked": "Booked",
+      "bookedSub": "Reserved right now",
+      "mine": "Your seat"
+    },
+    "readingChallenge": {
+      "eyebrow": "Achievements",
+      "heading": "Reading challenges &",
+      "highlight": "achievements",
+      "subheading": "Stay motivated with exciting challenges and earn badges as you read and grow.",
+      "imgAlt": "Illustration of a reader on a stack of books, surrounded by achievement badges and a reading streak counter",
+      "achievements": {
+        "firstBook": {
+          "label": "First Book",
+          "description": "Borrow your first book"
+        },
+        "bookWorm": {
+          "label": "Book Worm",
+          "description": "Read 10 books in a year"
+        },
+        "topReader": {
+          "label": "Top Reader",
+          "description": "Reach the top of the monthly leaderboard"
+        },
+        "monthlyChampion": {
+          "label": "Monthly Champion",
+          "description": "Complete every weekly challenge in a month"
+        }
+      },
+      "steps": {
+        "setGoals": {
+          "title": "Set Goals",
+          "description": "Choose your reading challenge and goal"
+        },
+        "trackProgress": {
+          "title": "Track Progress",
+          "description": "Monitor your reading streaks and progress"
+        },
+        "earnBadges": {
+          "title": "Earn Badges",
+          "description": "Unlock achievements and show them off"
+        }
+      },
+      "stats": {
+        "booksRead": "Books Read",
+        "dayStreak": "Day Streak",
+        "pointsEarned": "Points Earned",
+        "badgesUnlocked": "Badges Unlocked"
+      }
+    },
+    "community": {
+      "heading": "Built around",
+      "headingHighlight": "community",
+      "subheading": "The library is more than a catalog. It's a place to talk about what you're reading and give back.",
+      "imgAlt": "Illustration of members gathered around a table at a reading club meeting, with book discussions, reviews, reading clubs, and volunteer programs highlighted",
+      "items": {
+        "bookDiscussions": {
+          "title": "Book Discussions",
+          "description": "Talk through plot twists and themes with other readers."
+        },
+        "reviews": {
+          "title": "Reviews",
+          "description": "Rate and review books to help the community pick their next read."
+        },
+        "readingClubs": {
+          "title": "Reading Clubs",
+          "description": "Join a club that matches your favorite genre and reading pace."
+        },
+        "volunteerPrograms": {
+          "title": "Volunteer Programs",
+          "description": "Help run events, sort donations, or mentor new members."
+        }
+      },
+      "exploreAria": "Explore {{title}}"
+    },
+    "testimonials": {
+      "heading": "What our members say",
+      "items": {
+        "priyaSharma": {
+          "role": "Member since 2023",
+          "quote": "The seat booking feature alone saved me so many wasted trips to a full library."
+        },
+        "rahulNair": {
+          "role": "Reading Club Lead",
+          "quote": "Running our monthly book club is so much easier with the discussion boards built in."
+        },
+        "ananyaIyer": {
+          "role": "Manager",
+          "quote": "Coordinating donations and events used to be all spreadsheets. Now it's all in one place."
+        },
+        "karanMalhotra": {
+          "role": "Member since 2024",
+          "quote": "The AI recommendations feature suggested books I never would have picked myself, and I loved them."
+        }
+      }
+    },
+    "faq": {
+      "heading": "Frequently asked questions",
+      "items": {
+        "reservations": {
+          "question": "How do reservations work?",
+          "answer": "If a book is checked out, you can reserve it and you'll be notified as soon as it's back on the shelf."
+        },
+        "seatBookings": {
+          "question": "How do seat bookings work?",
+          "answer": "Pick an open time slot on the seat map and it's held for you until your session starts."
+        },
+        "donations": {
+          "question": "Can I donate books?",
+          "answer": "Yes, submit a donation request and our team will review and approve it for the shared collection."
+        },
+        "aiRecommendations": {
+          "question": "What is AI Recommendations?",
+          "answer": "A conversational assistant that recommends books based on your interests, mood, or reading history."
+        }
+      }
+    },
+    "cta": {
+      "heading": "Become a member and start reading today",
+      "subheading": "Join the reading community, explore the library, and never lose track of a book again.",
+      "button": "Join the Reading Community",
+      "contactUs": "Contact Us"
+    },
+    "footer": {
+      "heading": "Site links",
+      "brand": "Community Reading Club",
+      "description": "A modern library platform for borrowing, reading clubs, and community events.",
+      "navigation": "Navigation",
+      "quickLinks": "Quick Links",
+      "contact": "Contact",
+      "home": "Home",
+      "login": "Log in",
+      "register": "Register",
+      "books": "Books",
+      "community": "Community",
+      "events": "Events",
+      "website": "Website",
+      "communityForum": "Community Forum",
+      "newsletter": "Newsletter"
+    }
+  },
+  "pricing": {
+    "hero": {
+      "heading": "Find Your Perfect Plan",
+      "subtitle": "Choose the subscription that best fits your institution. Start with a shorter plan or save more with longer commitments.",
+      "badges": {
+        "noHiddenCharges": "No hidden charges",
+        "cancelAnytime": "Cancel anytime",
+        "educationalDiscounts": "Educational discounts available"
+      }
+    },
+    "toggle": {
+      "ariaLabel": "Subscription duration",
+      "save": "Save {{percent}}%",
+      "noDiscount": "No discount"
+    },
+    "durations": {
+      "1m": {
+        "label": "1 Month",
+        "suitableFor": "Students and short-term usage"
+      },
+      "3m": {
+        "label": "3 Months",
+        "suitableFor": "A full semester of uninterrupted library access"
+      },
+      "6m": {
+        "label": "6 Months",
+        "suitableFor": "A complete academic term"
+      },
+      "12m": {
+        "label": "12 Months",
+        "suitableFor": "Year-round access for institutions and power users"
+      }
+    },
+    "chooseCta": "Choose {{plan}}",
+    "perMonth": "per month",
+    "billedEvery": "Billed every {{months}} months",
+    "badges": {
+      "mostPopular": "Most Popular",
+      "bestValue": "Best Value"
+    },
+    "coreFeatures": {
+      "unlimitedBooks": "Unlimited books",
+      "unlimitedMembers": "Unlimited members",
+      "qrBorrowing": "QR borrowing",
+      "seatReservation": "Seat reservation",
+      "readingChallenges": "Reading challenges",
+      "events": "Events",
+      "emailNotifications": "Email notifications",
+      "basicAnalytics": "Basic analytics",
+      "aiRecommendations": "AI recommendations"
+    },
+    "extraFeatures": {
+      "prioritySupport": "Priority support",
+      "earlyAccess": "Early access to new features",
+      "freeOnboarding": "Free onboarding"
+    },
+    "included": {
+      "heading": "Everything you need, in every plan",
+      "subheading": "Instead of comparing tiers, every subscription includes the full feature set from day one.",
+      "items": {
+        "bookManagement": {
+          "title": "Book Management",
+          "description": "Catalog, issue, and track every book in your library from one place."
+        },
+        "memberManagement": {
+          "title": "Member Management",
+          "description": "Manage student and staff memberships with ease."
+        },
+        "qrBorrowing": {
+          "title": "QR Code Borrowing",
+          "description": "Scan a QR code to borrow or return books in seconds."
+        },
+        "seatReservation": {
+          "title": "Smart Seat Reservation",
+          "description": "Reserve a study seat in advance and see live availability."
+        },
+        "eventManagement": {
+          "title": "Event Management",
+          "description": "Plan and manage reading clubs, workshops, and library events."
+        },
+        "readingChallenges": {
+          "title": "Reading Challenges",
+          "description": "Keep members engaged with achievements and reading goals."
+        },
+        "notifications": {
+          "title": "Notifications",
+          "description": "Keep everyone informed with real-time email and in-app alerts."
+        },
+        "analytics": {
+          "title": "Reports & Analytics",
+          "description": "Track usage trends, popular titles, and member activity."
+        },
+        "multiDevice": {
+          "title": "Multi-device Support",
+          "description": "Works seamlessly across desktop, tablet, and mobile."
+        },
+        "secureAuth": {
+          "title": "Secure Authentication",
+          "description": "Role-based access keeps member and admin data protected."
+        },
+        "responsiveDashboard": {
+          "title": "Responsive Dashboard",
+          "description": "A clean, fast dashboard that adapts to any screen size."
+        },
+        "aiRecommendations": {
+          "title": "AI Recommendations",
+          "description": "Get personalized book recommendations from a conversational assistant."
+        }
+      }
+    },
+    "whyLonger": {
+      "heading": "Why choose a longer plan?",
+      "subheading": "Every plan unlocks the same features — a longer commitment just means more savings and less to think about.",
+      "items": {
+        "1m": "Perfect for trying the platform.",
+        "3m": "Great for semester usage.",
+        "6m": "Best for academic sessions.",
+        "12m": "Maximum savings with uninterrupted access."
+      }
+    },
+    "faq": {
+      "heading": "Frequently asked questions",
+      "items": {
+        "upgrade": {
+          "question": "Can I upgrade my subscription later?",
+          "answer": "Yes, you can move to a longer plan at any time and we'll prorate the difference."
+        },
+        "cancel": {
+          "question": "Can I cancel anytime?",
+          "answer": "Absolutely — there are no long-term contracts or cancellation fees."
+        },
+        "discount": {
+          "question": "Do you provide educational discounts?",
+          "answer": "Yes, accredited colleges and universities qualify for additional discounts on top of the plan savings."
+        },
+        "support": {
+          "question": "Is customer support included?",
+          "answer": "Yes, all plans include support, and the 6-month and 12-month plans include priority support."
+        },
+        "switchLonger": {
+          "question": "Can I switch to a longer subscription later?",
+          "answer": "Yes, you can switch to a longer plan whenever you're ready, and your remaining time will be credited."
+        },
+        "freeTrial": {
+          "question": "Is there a free trial?",
+          "answer": "This preview lets you explore every feature before choosing a plan — no credit card required."
+        }
+      }
+    },
+    "cta": {
+      "heading": "Ready to modernize your library?",
+      "subheading": "Start your subscription today and transform the way your library operates.",
+      "primaryButton": "Get Started",
+      "secondaryButton": "Contact Us"
+    }
+  },
+  "books": {
+    "pageTitle": "Books",
+    "pageDescription": "Browse the library catalog",
+    "filters": {
+      "searchPlaceholder": "Search by title or author…",
+      "searchAriaLabel": "Search books",
+      "categoryAriaLabel": "Filter by category",
+      "allCategories": "All",
+      "sortAriaLabel": "Sort books",
+      "sortOptions": {
+        "newest": "Newest Arrivals",
+        "rating": "Highest Rated",
+        "recommended": "Recommended for You"
+      }
+    },
+    "status": {
+      "available": "Available",
+      "checkedOut": "Checked out"
+    },
+    "empty": {
+      "title": "No books found",
+      "description": "Try a different search term or category.",
+      "clearFilters": "Clear filters"
+    },
+    "details": {
+      "notFound": {
+        "title": "Book not found",
+        "description": "This book may have been removed from the catalog."
+      },
+      "backToBooks": "Back to Books",
+      "copiesAvailable": "{{total}} copies in the library",
+      "reserveButton": "Request to borrow",
+      "reserveSuccessToast": "Requested \"{{title}}\" — awaiting manager approval",
+      "relatedBooks": {
+        "title": "Readers who borrowed this also borrowed…"
+      },
+      "aiInsights": {
+        "heading": "AI Book Insights",
+        "loading": "Generating AI insights…",
+        "unavailable": "AI insights aren't available right now.",
+        "keyConcepts": "Key concepts",
+        "themes": "Themes",
+        "vocabulary": "Vocabulary complexity",
+        "technicalDifficulty": "Technical difficulty",
+        "prerequisites": "Prerequisites",
+        "whyRead": "Why read it"
+      }
+    },
+    "wishlist": {
+      "button": "Wishlist",
+      "add": "Add to Wishlist",
+      "remove": "Remove from Wishlist",
+      "addAria": "Add \"{{title}}\" to wishlist",
+      "removeAria": "Remove \"{{title}}\" from wishlist",
+      "drawerTitle": "My Wishlist",
+      "empty": {
+        "title": "Your wishlist is empty",
+        "description": "Tap the heart on any book to save it here."
+      }
+    },
+    "summary": {
+      "empty": "No summary available for this book yet."
+    },
+    "quiz": {
+      "button": "Find My Next Book",
+      "title": "Find My Next Book",
+      "loading": "Preparing your questions…",
+      "loadError": "Couldn't load the quiz. Please try again.",
+      "retry": "Try again",
+      "notEnoughBooksTitle": "Not enough books yet",
+      "notEnoughBooksDescription": "There aren't enough books in the library to create recommendations yet.",
+      "questionProgress": "Question {{current}} of {{total}}",
+      "back": "Back",
+      "next": "Next",
+      "seeRecommendations": "See my recommendations",
+      "finding": "Finding your recommendations…",
+      "submitError": "Couldn't get recommendations. Please try again.",
+      "resultsTitle": "Your Recommendations",
+      "done": "Done",
+      "describe": {
+        "heading": "Describe what you want",
+        "placeholder": "e.g. something like a cozy mystery, older, not too long",
+        "submit": "Find books"
+      }
+    },
+    "categories": {
+      "fiction": "Fiction",
+      "nonFiction": "Non-Fiction",
+      "science": "Science",
+      "technology": "Technology",
+      "biography": "Biography",
+      "selfHelp": "Self-Help"
+    }
+  },
+  "events": {
+    "pageTitle": "Events",
+    "pageDescription": "Upcoming library events and community programs",
+    "form": {
+      "createTitle": "Create Event",
+      "editTitle": "Edit Event",
+      "title": "Title",
+      "titlePlaceholder": "Event title",
+      "description": "Description",
+      "descriptionPlaceholder": "Optional description",
+      "location": "Location",
+      "locationPlaceholder": "e.g. Main Hall",
+      "dateTime": "Date & Time",
+      "capacity": "Capacity",
+      "capacityPlaceholder": "Maximum attendees",
+      "managerAssign": "Assign managers",
+      "loadingManagers": "Loading assignable managers…",
+      "managerLoadError": "Unable to load assignable managers.",
+      "noManagers": "No managers available to assign.",
+      "saveChanges": "Save Changes",
+      "createButton": "Create Event",
+      "authRequired": "You must be logged in with a real account to manage events.",
+      "createdToast": "Event “{{title}}” created",
+      "updatedToast": "Event “{{title}}” updated",
+      "createError": "Failed to create event",
+      "updateError": "Failed to update event"
+    },
+    "stats": {
+      "eventsThisMonth": "Events This Month",
+      "totalAttendees": "Total Attendees",
+      "avgAttendanceRate": "Avg. Attendance Rate"
+    },
+    "details": {
+      "defaultTitle": "Event details",
+      "edit": "Edit",
+      "delete": "Delete",
+      "deleteConfirmTitle": "Delete Event?",
+      "deleteConfirmDescription": "Are you sure you want to delete “{{title}}”? This action cannot be undone.",
+      "deleteSuccessToast": "Event “{{title}}” deleted",
+      "deleteError": "Failed to delete event",
+      "attending": "{{attendees}}/{{capacity}} attending",
+      "registrationTitle": "Registration",
+      "registered": "You’re registered",
+      "notRegistered": "Not registered",
+      "register": "Register",
+      "cancelRegistration": "Cancel registration",
+      "managerAssignmentsTitle": "Manager Assignments",
+      "noManagersAssigned": "No managers assigned yet.",
+      "registeredAttendeesTitle": "Registered Attendees",
+      "noRegistrants": "No one has registered yet.",
+      "removeRegistrant": "Remove"
+    },
+    "analytics": {
+      "title": "Post-Event Analytics",
+      "totalRegistered": "Total Registered",
+      "fillRate": "Fill Rate",
+      "capacityFilled": "Capacity filled",
+      "byRole": "Registrants by Role",
+      "registrationTrend": "Registrations Over Time",
+      "registrants": "Registrants",
+      "noRegistrants": "No one registered for this event.",
+      "loadError": "Couldn't load analytics for this event.",
+      "exportTitle": "Post-Event Analytics — {{title}}",
+      "exportCharts": "Export Charts (PDF)",
+      "table": {
+        "name": "Name",
+        "email": "Email",
+        "role": "Role",
+        "registeredAt": "Registered At"
+      }
+    },
+    "empty": {
+      "title": "No events scheduled",
+      "description": "Check back soon — new community events are added regularly."
+    },
+    "filters": {
+      "timeLabel": "Show",
+      "timeAll": "All events",
+      "timeUpcoming": "Upcoming",
+      "timePast": "Past"
+    },
+    "sort": {
+      "label": "Sort by",
+      "dateAsc": "Date (soonest)",
+      "dateDesc": "Date (latest)",
+      "attendeesDesc": "Most attendees",
+      "attendeesAsc": "Fewest attendees"
+    }
+  },
+  "reservations": {
+    "pageTitle": "Reservations",
+    "pageDescription": "Track your book borrow requests",
+    "search": {
+      "placeholder": "Search by book title…",
+      "ariaLabel": "Search reservations",
+      "noResultsTitle": "No matches found",
+      "noResultsDescription": "Try a different search term.",
+      "clearSearch": "Clear search"
+    },
+    "current": {
+      "heading": "Current Reservations",
+      "emptyTitle": "No active reservations",
+      "emptyDescription": "Request to borrow a book from the catalog to see it here.",
+      "browseBooks": "Browse Books"
+    },
+    "status": {
+      "pending": "Awaiting approval",
+      "approved": "Approved",
+      "rejected": "Declined",
+      "cancelled": "Cancelled"
+    },
+    "dueBy": "Return by {{date}}",
+    "queue": {
+      "position": "#{{position}} in queue",
+      "eta": "~{{days}} day(s) until it's your turn",
+      "etaReady": "a copy is free, awaiting manager approval"
+    },
+    "actions": {
+      "cancel": "Cancel"
+    },
+    "cancelDialog": {
+      "title": "Cancel reservation?",
+      "description": "This will cancel your reservation for \"{{book}}\".",
+      "confirmLabel": "Cancel reservation"
+    },
+    "cancelSuccessToast": "Cancelled your reservation for \"{{book}}\"",
+    "filters": {
+      "statusLabel": "Status",
+      "all": "All",
+      "pending": "Pending",
+      "approved": "Approved",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    },
+    "sort": {
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "titleAsc": "Title A–Z",
+      "titleDesc": "Title Z–A"
+    }
+  },
+  "seatBooking": {
+    "pageTitle": "Seat Booking",
+    "pageDescription": "Reserve a quiet study seat",
+    "today": "Today",
+    "pickTimeTitle": "Pick a time · {{date}}",
+    "selectedSlot": "Showing seats for {{date}} · {{hour}}.",
+    "changeTime": "Change time",
+    "confirmToast": "Booking seat {{seatId}}",
+    "bookingSummary": {
+      "title": "Booking Summary",
+      "slotLabel": "Seat {{seatId}} · {{date}} · {{hour}}",
+      "selectPrompt": "Select an available seat to continue.",
+      "confirmButton": "Confirm Booking",
+      "cancelButton": "Cancel Booking",
+      "yourBookings": "Your bookings",
+      "bookingInProgress": "In progress · until {{endHour}}",
+      "reservedByOther": "Seat {{seatId}} is reserved for this time slot",
+      "bookedByYou": "You've booked seat {{seatId}} for this time slot",
+      "alreadyBookedThisSlot": "You already have a different seat booked for this time slot — cancel it first to switch.",
+      "notifyButton": "Notify Me When Available",
+      "notifySet": "We'll notify you when this seat frees up",
+      "notifyToast": "We'll notify you when seat {{seatId}} is available",
+      "slotDurationCountdown": "Each booking is for 1 hour — this seat will be available again in {{minutes}} min.",
+      "slotDurationFixed": "Each booking is for 1 hour — this seat will be available again at {{endHour}}."
+    },
+    "dateSliderAriaLabel": "Choose a date",
+    "occupancy": {
+      "rowLabel": "Row {{row}}",
+      "available": "Available",
+      "partial": "Filling up",
+      "full": "Fully booked",
+      "rowStatusAria": "Row {{row}}: {{status}}"
+    }
+  },
+  "readingProgress": {
+    "pageTitle": "Reading Progress",
+    "pageDescription": "Your reading activity across the year",
+    "guardianPageDescription": "Your children's reading activity",
+    "goalForm": {
+      "title": "Set Reading Goal",
+      "yearly": "Yearly goal (books)",
+      "monthly": "Monthly goal (books)",
+      "integerError": "Enter a whole number of at least 1",
+      "save": "Save",
+      "savedToast": "Reading goal saved",
+      "saveError": "Could not save goal"
+    },
+    "readingGoal": {
+      "title": "{{year}} Reading Goal",
+      "booksOf": "{{current}} of {{target}} books"
+    },
+    "readingStreak": {
+      "title": "Reading Streak",
+      "currentDays_one": "{{count}} day",
+      "currentDays_other": "{{count}} days",
+      "longest_one": "Longest streak: {{count}} day",
+      "longest_other": "Longest streak: {{count}} days"
+    },
+    "certificate": {
+      "shareButton": "Goal complete — share certificate",
+      "title": "Your Reading Certificate",
+      "download": "Download",
+      "share": "Share"
+    },
+    "lists": {
+      "currentlyReading": {
+        "title": "Currently Reading",
+        "emptyDescription": "Start a book to track it here."
+      },
+      "completed": {
+        "title": "Completed",
+        "emptyDescription": "Books you finish will show up here."
+      },
+      "wantToRead": {
+        "title": "Want To Read",
+        "emptyDescription": "Save books you plan to read next."
+      }
+    },
+    "emptyState": {
+      "title": "Nothing here yet"
+    },
+    "byAuthor": "by {{author}}"
+  },
+  "leaderboard": {
+    "pageTitle": "Leaderboard",
+    "pageDescription": "Community reading & participation leaderboard",
+    "pointsAmount": "+{{points}} pts",
+    "penaltyAmount": "-{{points}} pts",
+    "table": {
+      "rank": "Rank",
+      "reader": "Member",
+      "score": "Score",
+      "badges": "Badges",
+      "points": "Points",
+      "booksCompleted": "Books Completed",
+      "reviews": "Reviews",
+      "streak": "Streak"
+    },
+    "badges": {
+      "bookworm": "Bookworm",
+      "bookwormDesc": "10 books completed",
+      "7_day_streak": "7-Day Streak",
+      "7_day_streakDesc": "Read for 7 consecutive days",
+      "top_reviewer": "Top Reviewer",
+      "top_reviewerDesc": "10 reviews written",
+      "perfect_returner": "Perfect Returner",
+      "perfect_returnerDesc": "10 books returned on time",
+      "reading_champion": "Reading Champion",
+      "reading_championDesc": "#1 monthly score",
+      "community_star": "Community Star",
+      "community_starDesc": "5 library events attended"
+    },
+    "rules": {
+      "title": "How Points & Badges Work",
+      "subtitle": "Leaderboard rewards overall participation across books completed, reviews, events, streaks, and timely returns.",
+      "show": "How Points Work",
+      "hide": "Hide Rules",
+      "labels": {
+        "completeBook": "Complete a Book",
+        "writeReview": "Write a Review",
+        "attendEvent": "Library Event",
+        "onTimeReturn": "On-Time Return",
+        "streakBonus": "7-Day Streak",
+        "lateReturn": "Late Return Penalty"
+      },
+      "completeBook": "Complete a book (+100 pts)",
+      "writeReview": "Write a book review (+25 pts)",
+      "attendEvent": "Library event (+30 pts)",
+      "onTimeReturn": "On-time return (+15 pts)",
+      "streakBonus": "7-day streak (+50 pts)",
+      "lateReturn": "Late return penalty (-10 pts)"
+    },
+    "hoursSuffix": "{{hours}}h",
+    "show": {
+      "label": "Show",
+      "top50": "Top 50",
+      "everyone": "Everyone"
+    },
+    "sort": {
+      "highestScore": "Highest Score",
+      "lowestScore": "Lowest Score",
+      "nameAsc": "Name A–Z",
+      "nameDesc": "Name Z–A"
+    }
+  },
+  "community": {
+    "pageTitle": "Community",
+    "pageDescription": "Share your thoughts on books and connect with fellow members.",
+    "newPost": "New Post",
+    "you": "You",
+    "justNow": "Just now",
+    "filterAriaLabel": "Filter posts",
+    "filters": {
+      "all": "All Posts",
+      "saved": "Saved",
+      "reported": "Reported",
+      "groupLabel": "Filter"
+    },
+    "adminStats": {
+      "totalPosts": "Total Posts",
+      "totalComments": "Total Comments",
+      "reportedComments": "Reported Comments"
+    },
+    "empty": {
+      "title": "No posts yet",
+      "description": "Be the first to share what you're reading.",
+      "savedTitle": "No saved posts yet",
+      "savedDescription": "Posts you save will show up here.",
+      "reportedTitle": "No reported content",
+      "reportedDescription": "Flagged posts and comments will show up here for review."
+    },
+    "post": {
+      "likeAria": "Like post",
+      "unlikeAria": "Unlike post",
+      "commentAria": "View comments",
+      "saveAria": "Save post",
+      "unsaveAria": "Unsave post",
+      "editAria": "Edit post",
+      "deleteAria": "Delete post",
+      "commentPlaceholder": "Write a comment...",
+      "sendComment": "Send comment",
+      "reply": "Reply",
+      "replyPlaceholder": "Write a reply...",
+      "sendReply": "Send reply",
+      "reportedBadge": "Reported",
+      "reportedCommentBadge": "Comment reported",
+      "removeComment": "Remove",
+      "banAria": "Ban {{author}}",
+      "bannedBadge": "Banned",
+      "report": "Report",
+      "reportAria": "Report {{author}}'s post",
+      "translate": "Translate",
+      "showOriginal": "Show original",
+      "translating": "Translating…",
+      "translateFailed": "Couldn't translate this right now"
+    },
+    "createPostModal": {
+      "title": "Create Post",
+      "editTitle": "Edit Post",
+      "bookTitleLabel": "Book (optional)",
+      "bookTitlePlaceholder": "Which book is this about?",
+      "contentLabel": "Your thoughts",
+      "contentPlaceholder": "What's on your mind?",
+      "imagesLabel": "Add photos (optional)",
+      "addImage": "Add",
+      "removeImage": "Remove image",
+      "imagesHint": "Up to {{count}} images",
+      "submit": "Post",
+      "saveChanges": "Save Changes"
+    },
+    "deleteDialog": {
+      "title": "Delete post?",
+      "description": "This can't be undone.",
+      "confirmLabel": "Delete"
+    },
+    "banDialog": {
+      "title": "Temporarily ban {{author}}?",
+      "description": "{{author}} won't be able to post or comment in Community for 24 hours. You can unban them anytime.",
+      "confirmLabel": "Ban for 24 hours"
+    },
+    "bannedUsers": {
+      "title": "Banned Users",
+      "status": "Banned for 24 hours",
+      "unban": "Unban"
+    },
+    "sort": {
+      "newest": "Newest",
+      "oldest": "Oldest",
+      "mostLiked": "Most liked"
+    }
+  },
+  "settings": {
+    "pageTitle": "Settings",
+    "pageDescription": "Manage your account, appearance, and notification preferences.",
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "themeOptions": {
+        "light": "Light",
+        "dark": "Dark",
+        "system": "System"
+      }
+    },
+    "language": {
+      "title": "Language",
+      "label": "Display language"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "items": {
+        "dueDateReminders": "Due date reminders",
+        "reservationReady": "Reservation ready alerts",
+        "eventAnnouncements": "Event announcements",
+        "achievementBadges": "Achievement badges"
+      }
+    },
+    "adminPreferences": {
+      "title": "Admin Preferences",
+      "items": {
+        "autoApproveSmallRefunds": "Auto-approve refunds under ₹500",
+        "lowStockAlerts": "Low book-stock alerts",
+        "pendingRequestDigest": "Daily pending-request email digest",
+        "financialActivityAlerts": "Real-time financial activity alerts"
+      }
+    },
+    "managerPreferences": {
+      "title": "Manager Preferences",
+      "items": {
+        "walkInRequestAlerts": "Walk-in seat/book request alerts",
+        "registrationRequestAlerts": "New registration request alerts",
+        "pendingPaymentReminders": "Pending counter-payment reminders",
+        "endOfDaySummary": "End-of-day shift summary email"
+      }
+    },
+    "itHeadPreferences": {
+      "title": "IT Head Preferences",
+      "items": {
+        "accessRequestAlerts": "New access-permission request alerts",
+        "issueTicketAlerts": "New issue ticket alerts",
+        "feeOutstandingDigest": "Weekly fee & fine outstanding digest",
+        "bookRecordAlerts": "Book record change alerts (lost/donated/purchased)"
+      }
+    },
+    "guardianLink": {
+      "title": "Guardian",
+      "description": "Link a guardian's email so they can track your library activity.",
+      "emailLabel": "Guardian's email",
+      "emailPlaceholder": "guardian@example.com",
+      "invalidEmail": "Enter a valid email address.",
+      "linkButton": "Link Guardian",
+      "linked": "Linked",
+      "unlink": "Unlink",
+      "noneLinked": "No guardian is linked to your account yet.",
+      "managedByStaff": "Guardian links are verified and managed by library staff. Contact the front desk to add, change, or remove a guardian."
+    },
+    "changePassword": {
+      "title": "Change Password",
+      "currentPassword": "Current password",
+      "currentPasswordRequired": "Enter your current password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "updateButton": "Update password",
+      "successToast": "Password updated successfully"
+    },
+    "account": {
+      "title": "Account",
+      "logOut": "Log out",
+      "dangerZone": "Danger zone",
+      "deleteAccount": "Delete account",
+      "deleteAccountTitle": "Delete your account?",
+      "deleteAccountHint": "Permanently delete your account and all your data.",
+      "deleteAccountConfirm": "Delete your account? This can't be undone.",
+      "deleteAccountSuccess": "Your account has been deleted."
+    }
+  },
+  "translateDemo": {
+    "title": "Translation demo",
+    "description": "Type any text and choose a language to translate it.",
+    "sourceLabel": "Text to translate",
+    "targetLabel": "Translate to",
+    "outputLabel": "Translated output",
+    "loading": "(translating…)",
+    "error": "Translation failed. Your original text is shown."
+  },
+  "reviews": {
+    "pageTitle": "Book Reviews",
+    "byAuthor": "by {{author}}",
+    "writeReview": "Write a Review",
+    "viewReviews": "View Reviews",
+    "commentsHeading": "Comments",
+    "digest": {
+      "heading": "What readers are saying"
+    },
+    "libraryReviewCard": {
+      "title": "Rate Your Library Experience",
+      "existingTitle": "Your Library Review",
+      "description": "Share your thoughts about our platform! Approved reviews are featured in 'What Our Members Say' on our homepage.",
+      "button": "Leave a Review",
+      "editButton": "Edit Review",
+      "pending": "Awaiting admin approval",
+      "rejectedNotShown": "Not approved for the homepage"
+    },
+    "libraryReviewModal": {
+      "title": "Rate & Review Our Library",
+      "description": "Share your experience with our community! Approved reviews are featured in 'What Our Members Say' on the homepage.",
+      "ratingLabel": "Overall Rating",
+      "reviewLabel": "Your Review",
+      "placeholder": "What do you love most about our library, collection, seat reservations, or atmosphere?",
+      "submitButton": "Submit Review",
+      "errorMinLength": "Please write a review of at least 5 characters.",
+      "successToast": "Thank you! Your review is awaiting admin approval before it appears on the homepage."
+    },
+    "member": {
+      "ratedBooksHeading": "My Rated Books",
+      "writtenReviewsHeading": "My Reviews",
+      "noRatings": "No books rated yet.",
+      "noWrittenReviews": "You haven't written any reviews yet.",
+      "searchPlaceholder": "Search rated books by title...",
+      "table": {
+        "book": "Book",
+        "author": "Author",
+        "rating": "My Rating"
+      },
+      "sort": {
+        "label": "Sort by",
+        "newest": "Newest first",
+        "titleAsc": "Title (A–Z)",
+        "titleDesc": "Title (Z–A)",
+        "ratingHigh": "Highest rating",
+        "ratingLow": "Lowest rating"
+      }
+    },
+    "admin": {
+      "pageDescription": "Reviews across the whole catalog",
+      "stats": {
+        "totalReviews": "Total Reviews",
+        "averageRating": "Average Rating",
+        "booksReviewed": "Books Reviewed"
+      },
+      "filters": {
+        "ratingLabel": "Rating",
+        "ratingAll": "All ratings",
+        "ratingValue": "{{count}} stars"
+      },
+      "sort": {
+        "label": "Sort by",
+        "newest": "Newest first",
+        "oldest": "Oldest first",
+        "ratingHigh": "Highest rating",
+        "ratingLow": "Lowest rating"
+      }
+    },
+    "summary": {
+      "totalReviews_one": "{{count}} review",
+      "totalReviews_other": "{{count}} reviews",
+      "starsLabel_one": "{{count}} star",
+      "starsLabel_other": "{{count}} stars"
+    },
+    "deleteDialog": {
+      "title": "Delete review?",
+      "description": "This can't be undone.",
+      "confirmLabel": "Delete"
+    },
+    "empty": {
+      "title": "No reviews yet",
+      "description": "Be the first to share what you thought of this book."
+    },
+    "writeReviewModal": {
+      "title": "Write a Review",
+      "you": "You",
+      "bookLabel": "Book",
+      "bookSearchPlaceholder": "Search for a book to review",
+      "changeBook": "Change book",
+      "noBooksFound": "No books found",
+      "bookSearchFailed": "Couldn't search books — check your connection and try again",
+      "ratingLabel": "Your rating",
+      "commentLabel": "Your review",
+      "commentPlaceholder": "What did you think of this book?",
+      "imagesLabel": "Add photos (optional)",
+      "addImage": "Add",
+      "removeImage": "Remove image",
+      "imagesHint": "Up to {{count}} images",
+      "submit": "Post Review",
+      "editTitle": "Edit Review",
+      "saveChanges": "Save Changes"
+    }
+  },
+  "notifications": {
+    "pageTitle": "Notifications",
+    "pageTitleWithUnread": "Notifications ({{count}} unread)",
+    "unreadBadge_one": "{{count}} unread",
+    "unreadBadge_other": "{{count}} unread",
+    "markAllAsRead": "Mark all as read",
+    "filterAriaLabel": "Filter notifications",
+    "announcementPopup": {
+      "title": "Announcement",
+      "acknowledge": "Got it",
+      "remaining_one": "{{count}} announcement to review",
+      "remaining_other": "{{count}} announcements to review"
+    },
+    "filters": {
+      "all": "All",
+      "unread": "Unread"
+    },
+    "empty": {
+      "title": "Nothing to see here",
+      "description": "You're all caught up on notifications."
+    },
+    "titles": {
+      "reservationReady": "Reservation ready",
+      "commentReported": "Comment reported",
+      "seatAvailable": "Seat available",
+      "seatBooked": "Seat booked",
+      "postComment": "New comment",
+      "postLike": "New like",
+      "paymentReceived": "Payment received",
+      "paymentPending": "Cash payment requested",
+      "bookRecord": "Book record logged",
+      "pendingRequest": "Billing request needs approval",
+      "announcement": "Announcement",
+      "supportTicket": "New support ticket",
+      "supportTicketResolved": "Your ticket was resolved",
+      "supportTicketReopened": "A ticket was reopened",
+      "fineReminder": "Overdue book reminder"
+    }
+  },
+  "support": {
+    "pageTitle": "Support",
+    "pageDescription": "Raise an issue and track it until it's resolved.",
+    "raiseButton": "Raise a Ticket",
+    "categories": {
+      "book_reservation": "Book Reservation",
+      "payment": "Payment",
+      "seat_booking": "Seat Booking",
+      "harassment": "Harassment / Safety Concern",
+      "offline_library": "Offline Library Visit",
+      "attendance": "Attendance",
+      "other": "Other"
+    },
+    "status": {
+      "open": "Open",
+      "resolved": "Awaiting your confirmation",
+      "closed": "Closed"
+    },
+    "wizard": {
+      "title": "Raise a Ticket",
+      "step1Title": "What's this about?",
+      "step2Title": "Describe the issue",
+      "step2Placeholder": "Tell us what happened...",
+      "step2Hint": "Between 10 and 500 characters.",
+      "step3Title": "Review & confirm",
+      "acknowledge": "I confirm the details above are accurate.",
+      "next": "Next",
+      "back": "Back",
+      "submit": "Submit Ticket",
+      "submitError": "Couldn't submit your ticket. Please try again.",
+      "step4Title": "Ticket submitted",
+      "step4Description": "Our team will review it and get back to you. You can track its status below.",
+      "done": "Done"
+    },
+    "actions": {
+      "confirmResolved": "Confirm Resolved",
+      "reopen": "Not Fixed — Reopen"
+    },
+    "history": {
+      "title": "Your Tickets",
+      "emptyTitle": "No tickets yet",
+      "emptyDescription": "Anything you raise will show up here.",
+      "raisedOn": "Raised {{date}}",
+      "staffResponse": "Staff response"
+    },
+    "toasts": {
+      "created": "Your ticket has been submitted.",
+      "confirmed": "Thanks — ticket closed.",
+      "reopened": "Ticket reopened for staff to take another look."
+    },
+    "staff": {
+      "title": "Support Tickets",
+      "description": "Issues raised by members and guardians.",
+      "filterAriaLabel": "Filter tickets",
+      "filters": {
+        "all": "All",
+        "open": "Open",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "raisedBy": "Raised by {{name}} ({{role}})",
+      "resolveButton": "Resolve",
+      "resolvedToast": "Ticket marked resolved.",
+      "resolveModalTitle": "Resolve Ticket",
+      "resolutionPlaceholder": "What did you do to fix this?",
+      "resolutionHint": "This will be shown to the person who raised the ticket.",
+      "submitResolution": "Mark Resolved",
+      "emptyTitle": "No tickets here",
+      "emptyDescription": "Nothing matches this filter right now.",
+      "sort": {
+        "label": "Sort by",
+        "newest": "Newest first",
+        "oldest": "Oldest first"
+      }
+    },
+    "filters": {
+      "statusLabel": "Status"
+    },
+    "sort": {
+      "newest": "Newest",
+      "oldest": "Oldest"
+    }
+  },
+  "profile": {
+    "editProfile": "Edit Profile",
+    "editProfileToast": "Editing your profile",
+    "stats": {
+      "booksRead": "Books Read",
+      "pagesRead": "Pages Read",
+      "hoursRead": "Hours Read"
+    },
+    "readingProfile": {
+      "heading": "AI Reading Profile",
+      "loading": "Building your reading profile…",
+      "unavailable": "Your AI reading profile isn't available yet — borrow, review, or reserve a few books to get started.",
+      "interests": "Top interests",
+      "difficulty": "Preferred difficulty",
+      "preference": "Reading preference"
+    },
+    "adminStats": {
+      "actionsThisMonth": "Actions This Month",
+      "expensesApproved": "Expenses Approved",
+      "finesWaived": "Fines Waived"
+    },
+    "itHeadStats": {
+      "openIssues": "Open Issues",
+      "resolvedIssues": "Resolved Issues",
+      "pendingPermissions": "Pending Permissions"
+    },
+    "managerStats": {
+      "walkInRequests": "Walk-In Requests",
+      "newRegistrations": "New Registrations",
+      "pendingPayments": "Pending Payments"
+    },
+    "achievements": {
+      "title": "Achievements",
+      "empty": {
+        "title": "No achievements yet",
+        "description": "Achievements are coming soon."
+      },
+      "items": {
+        "firstBook": {
+          "label": "First Book",
+          "description": "Borrow your first book"
+        },
+        "bookWorm": {
+          "label": "Book Worm",
+          "description": "Read 10 books in a year"
+        },
+        "topReader": {
+          "label": "Top Reader",
+          "description": "Reach the top of the monthly leaderboard"
+        }
+      }
+    },
+    "currentReading": {
+      "title": "Current Reading",
+      "by": "by {{author}}"
+    },
+    "borrowHistory": {
+      "title": "Borrow History",
+      "empty": {
+        "title": "No borrow history yet",
+        "description": "Books you've borrowed will show up here."
+      },
+      "columns": {
+        "title": "Title",
+        "borrowedOn": "Borrowed On",
+        "returnedOn": "Returned On"
+      }
+    },
+    "paymentHistory": {
+      "title": "Payment History",
+      "empty": {
+        "title": "No payments yet",
+        "description": "Payments you make will show up here."
+      },
+      "table": {
+        "label": "Label",
+        "amount": "Amount",
+        "status": "Status",
+        "date": "Date"
+      }
+    }
+  },
+  "contactUs": {
+    "pageTitle": "Contact Us",
+    "pageDescription": "Submit a message for your library, club, or community inquiry.",
+    "hero": {
+      "heading": "We're here to help",
+      "subheading": "Get answers to common questions, contact the right department, or reach out to our team for personalized assistance.",
+      "badges": {
+        "quickResponses": "Quick responses",
+        "dedicatedSupportTeams": "Dedicated support teams",
+        "multilingualAssistance": "Multilingual assistance"
+      }
+    },
+    "form": {
+      "heading": "Contact Us",
+      "description": "Reach out to our team for assistance with memberships, reading clubs, donations, seat reservations, library services, and community partnerships.",
+      "name": "Name",
+      "email": "Email",
+      "phoneNumber": "Phone Number",
+      "organization": "Organization / Reading Club",
+      "message": "Message",
+      "submitButton": "Submit Inquiry",
+      "subject": "Subject"
+    },
+    "table": {
+      "heading": "Department Contacts",
+      "description": "Reach the right team for pricing, clubs, bookings, or donations.",
+      "category": "Department",
+      "email": "Email",
+      "phone": "Phone",
+      "pricingAndFines": "Pricing & Fines",
+      "booksAndClubs": "Books & Clubs",
+      "seatBooking": "Seat Booking",
+      "donations": "Donations",
+      "caption": "All contact details are monitored during business hours."
+    },
+    "map": {
+      "title": "Visit Us",
+      "description": "Find us at Connaught Place, New Delhi.",
+      "getDirections": "Get directions"
+    },
+    "errors": {
+      "name": "Name is required.",
+      "email": "Enter a valid email address.",
+      "phoneNumber": "Enter a valid phone number.",
+      "organization": "Organization or club name is required.",
+      "message": "Please share a brief message.",
+      "subject": "Subject is required."
+    },
+    "toasts": {
+      "success": "Your inquiry has been sent. We will contact you soon."
+    },
+    "quickNav": {
+      "faq": "FAQ",
+      "contactUs": "Contact Us",
+      "departmentContacts": "Department Contacts"
+    },
+    "faq": {
+      "heading": "Frequently Asked Questions",
+      "description": "Before contacting our team, you may find an answer below.",
+      "categories": {
+        "membership": "Membership",
+        "books": "Books",
+        "readingClubs": "Reading Clubs",
+        "seatBooking": "Seat Booking",
+        "finesPayments": "Fines & Payments",
+        "donations": "Donations",
+        "events": "Events"
+      },
+      "items": {
+        "becomeMember": {
+          "question": "How do I become a library member?",
+          "answer": "1. Open the Register page.\n2. Choose the member role that fits you.\n3. Fill in your name, email, and contact details.\n4. Submit the form to create your membership."
+        },
+        "renewMembership": {
+          "question": "How do I renew my membership?",
+          "answer": "1. Open your Profile.\n2. Go to the Membership section.\n3. Select Renew membership.\n4. Confirm your details and complete payment if required."
+        },
+        "updateProfile": {
+          "question": "How do I update my profile information?",
+          "answer": "1. Open your Profile page.\n2. Choose Edit profile.\n3. Update your personal details and save your changes."
+        },
+        "resetPassword": {
+          "question": "How do I reset my password?",
+          "answer": "1. Go to the Login page.\n2. Click Forgot password.\n3. Enter your email address.\n4. Follow the instructions in the reset email."
+        },
+        "borrowBook": {
+          "question": "How do I borrow a book?",
+          "answer": "1. Visit the Books page.\n2. Select an available title.\n3. Choose Borrow or Reserve.\n4. Confirm your borrowing details."
+        },
+        "renewBorrowedBook": {
+          "question": "How do I renew a borrowed book?",
+          "answer": "1. Open My Account or Reservations.\n2. Find the book you have borrowed.\n3. Click Renew if the book is eligible.\n4. Confirm the new return date."
+        },
+        "reserveUnavailableBook": {
+          "question": "How do I reserve a book that is currently unavailable?",
+          "answer": "1. Find the unavailable book on the Books page.\n2. Choose Reserve to place a hold.\n3. You will be notified when the book becomes available."
+        },
+        "requestNewBookTitle": {
+          "question": "How do I request a new book title?",
+          "answer": "1. Open the Request a Book form or contact the Books & Clubs department.\n2. Provide the title, author, and edition.\n3. Submit your request for review.\n4. We will follow up with availability details."
+        },
+        "loseBook": {
+          "question": "What happens if I lose a book?",
+          "answer": "1. Report the lost book through your account or the library desk.\n2. You may be charged a replacement fee.\n3. Contact the Pricing & Fines department for assistance.\nEmail: pricing@readingclub.org\nPhone: +1 (555) 010-2001"
+        },
+        "joinReadingClub": {
+          "question": "How do I join a reading club?",
+          "answer": "1. Open the Reading Clubs section.\n2. Browse available clubs.\n3. Select a club that interests you.\n4. Click Join Club.\n5. Your membership request will be submitted."
+        },
+        "createReadingClub": {
+          "question": "How do I create a reading club?",
+          "answer": "Reading club creation requests are reviewed by our community team.\nPlease contact the Books & Clubs department.\nEmail: clubs@readingclub.org\nPhone: +1 (555) 010-2002"
+        },
+        "leaveClub": {
+          "question": "Can I leave a club after joining?",
+          "answer": "1. Open the club details page.\n2. Select Leave Club.\n3. Confirm that you want to leave the club.\n4. Your membership will be removed immediately."
+        },
+        "clubMeetings": {
+          "question": "How are club meetings scheduled?",
+          "answer": "1. Open the reading club details.\n2. Review the meeting schedule listed there.\n3. Join meetings from the club page or calendar.\n4. Contact the club organizer if you need to change your meeting time."
+        },
+        "reserveSeat": {
+          "question": "How do I reserve a reading seat?",
+          "answer": "1. Navigate to the Seat Booking page.\n2. Select your preferred date and time slot.\n3. Choose an available seat from the seating map.\n4. Confirm your reservation.\n5. A confirmation notification will be displayed."
+        },
+        "cancelReservation": {
+          "question": "How do I cancel a reservation?",
+          "answer": "1. Open My Reservations.\n2. Find the seat reservation you want to cancel.\n3. Click Cancel reservation.\n4. Confirm the cancellation."
+        },
+        "seatUnavailable": {
+          "question": "Why is my preferred seat unavailable?",
+          "answer": "Your preferred seat may already be booked or temporarily unavailable.\nPlease choose another slot or time, or contact the Seat Booking department for help.\nEmail: booking@readingclub.org\nPhone: +1 (555) 010-2003"
+        },
+        "bookingLimit": {
+          "question": "How many bookings can I make each week?",
+          "answer": "Most members can make up to five seat bookings per week.\nIf you need additional access, contact the Seat Booking department for more options.\nEmail: booking@readingclub.org\nPhone: +1 (555) 010-2003"
+        },
+        "overdueFines": {
+          "question": "How are overdue fines calculated?",
+          "answer": "1. Fines are based on the number of days overdue and the book type.\n2. Check your account for the exact amount owed.\n3. Review the fine details before paying."
+        },
+        "payFines": {
+          "question": "How can I pay my fines?",
+          "answer": "1. Open My Account.\n2. Navigate to Fines & Payments.\n3. Review outstanding fines.\n4. Select Pay Now.\n5. Complete payment using the available payment method."
+        },
+        "waiveFine": {
+          "question": "Can a fine be waived?",
+          "answer": "Fine waivers are reviewed on a case-by-case basis.\nPlease contact the Pricing & Fines department for assistance.\nEmail: pricing@readingclub.org\nPhone: +1 (555) 010-2001"
+        },
+        "donateBooks": {
+          "question": "How do I donate books?",
+          "answer": "1. Visit the Donations section or library desk.\n2. Prepare books in good condition.\n3. Drop them off at the designated donation area.\n4. We will review and add approved titles to the collection."
+        },
+        "donationCondition": {
+          "question": "What condition should donated books be in?",
+          "answer": "Please donate gently used books with intact covers, clean pages, and no missing content.\nIf you have a large collection, contact the Donations department for scheduling.\nEmail: donations@readingclub.org\nPhone: +1 (555) 010-2004"
+        },
+        "donateFunds": {
+          "question": "How do I donate funds?",
+          "answer": "1. Open the Donations page.\n2. Select the contribution amount.\n3. Provide your payment details.\n4. Submit your donation.\n5. You will receive a confirmation receipt."
+        },
+        "donationReceipt": {
+          "question": "Will I receive a donation receipt?",
+          "answer": "Yes. After you donate books or funds, we will send a donation receipt to your email address for your records."
+        },
+        "registerEvents": {
+          "question": "How do I register for library events?",
+          "answer": "1. Open the Events page.\n2. Browse available events.\n3. Select an event and click Register.\n4. Confirm your registration details."
+        },
+        "volunteer": {
+          "question": "How can I volunteer?",
+          "answer": "1. Visit the Events or Community page.\n2. Look for volunteer opportunities.\n3. Express interest for a role.\n4. Our team will follow up with next steps."
+        },
+        "organizeEvent": {
+          "question": "Can I organize an event through the library?",
+          "answer": "Yes, you can organize community events through our team.\nPlease contact the Books & Clubs department or use the Contact Us form to discuss your event.\nEmail: clubs@readingclub.org\nPhone: +1 (555) 010-2002"
+        }
+      }
+    },
+    "stillNeedHelp": {
+      "title": "Still Need Help?",
+      "description": "Questions about memberships, reading clubs, donations, seat reservations, or fines? Our team is here to help."
+    },
+    "actions": {
+      "emailUs": "Email Us",
+      "callUs": "Call Us",
+      "contactUs": "Contact Us",
+      "faq": "Help Center",
+      "home": "Home"
+    }
+  }
+}

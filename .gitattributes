@@ -1,0 +1,5 @@
+# Shell scripts must stay LF — CRLF breaks the shebang line's interpreter lookup on
+# real POSIX shells, and git hooks specifically won't run at all if Windows checkout
+# converts them (see .githooks/, which relies on this).
+*.sh text eol=lf
+.githooks/* text eol=lf

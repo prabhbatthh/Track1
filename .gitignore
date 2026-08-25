@@ -1,0 +1,50 @@
+# Tracks which schema.prisma the local Prisma client was generated from
+# (see start_backend.py) — describes this machine's .venv, not the project.
+backend/.prisma-client-schema-hash
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+dist/
+build/
+*.egg-info/
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Frontend
+frontend/dist/
+frontend/.vite/
+
+# Playwright
+playwright-report/
+test-results/
+
+# Environment files
+.env
+.env.*
+**/.env
+**/.env.*
+
+# Keep examples
+!.env.example
+!**/.env.example
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs
+*.log

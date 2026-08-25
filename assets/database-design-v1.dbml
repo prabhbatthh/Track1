@@ -1,0 +1,567 @@
+// Community Reading Club & Library Management Platform
+// Database Design — v1 (Initial App)
+// Paste into https://dbdiagram.io to render the ER diagram.
+
+//////////////////////////////////////////////
+// ENUMS
+//////////////////////////////////////////////
+
+Enum membership_status {
+  active
+  expired
+  cancelled
+}
+
+Enum book_copy_condition {
+  good
+  damaged
+  lost
+}
+
+Enum book_copy_status {
+  available
+  loaned
+  reserved
+  written_off
+}
+
+Enum loan_status {
+  active
+  returned
+  overdue
+  lost
+}
+
+Enum fine_status {
+  pending
+  paid
+  waived
+}
+
+Enum reservation_status {
+  pending
+  ready
+  fulfilled
+  cancelled
+  expired
+}
+
+Enum seat_status {
+  active
+  maintenance
+}
+
+Enum seat_booking_status {
+  booked
+  checked_in
+  completed
+  cancelled
+  no_show
+}
+
+Enum payment_type {
+  membership_fee
+  fine
+}
+
+Enum payment_status {
+  pending
+  completed
+  failed
+  refunded
+}
+
+Enum content_report_target_type {
+  review
+  message
+}
+
+Enum content_report_status {
+  pending
+  actioned
+  dismissed
+}
+
+Enum donation_status {
+  pending
+  approved
+  rejected
+  received
+}
+
+Enum notification_channel {
+  email
+  in_app
+  telegram
+}
+
+Enum notification_status {
+  pending
+  sent
+  failed
+}
+
+//////////////////////////////////////////////
+// AUTHENTICATION & ACCESS
+//////////////////////////////////////////////
+
+Table User {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email varchar(255) [not null, unique]
+  password_hash varchar(255) [not null]
+  full_name varchar(150) [not null]
+  phone varchar(20)
+  avatar_url text
+  role_id uuid [not null, ref: > Role.id]
+  is_active boolean [not null, default: true]
+  last_login_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+}
+
+Table Role {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(40) [not null, unique] // admin | staff | member
+  description text
+}
+
+Table Permission {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(80) [not null, unique] // e.g. can_issue_book
+  description text
+}
+
+Table RolePermission {
+  role_id uuid [not null, ref: > Role.id]
+  permission_id uuid [not null, ref: > Permission.id]
+
+  indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+Table RefreshToken {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > User.id]
+  token_hash varchar(255) [not null, unique]
+  expires_at timestamptz [not null]
+  revoked_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table PasswordResetToken {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > User.id]
+  token_hash varchar(255) [not null, unique]
+  expires_at timestamptz [not null]
+  used_at timestamptz
+}
+
+//////////////////////////////////////////////
+// MEMBERSHIP
+//////////////////////////////////////////////
+
+Table MembershipPlan {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(80) [not null, unique]
+  description text
+  duration_days integer [not null]
+  max_active_loans integer [not null]
+  fee_amount numeric(10,2) [not null]
+  is_active boolean [not null, default: true]
+}
+
+Table Membership {
+  id uuid [pk, default: `gen_random_uuid()`]
+  member_id uuid [not null, ref: > User.id]
+  plan_id uuid [not null, ref: > MembershipPlan.id]
+  start_date date [not null]
+  end_date date [not null]
+  status membership_status [not null, default: 'active']
+  auto_renew boolean [not null, default: false]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+//////////////////////////////////////////////
+// LIBRARY / CATALOGUE
+//////////////////////////////////////////////
+
+Table Author {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(150) [not null]
+  bio text
+}
+
+Table Publisher {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(150) [not null, unique]
+}
+
+Table Category {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(80) [not null, unique]
+  parent_category_id uuid [ref: > Category.id]
+}
+
+Table Book {
+  id uuid [pk, default: `gen_random_uuid()`]
+  title varchar(255) [not null]
+  isbn varchar(20) [unique]
+  description text
+  publisher_id uuid [ref: > Publisher.id]
+  published_year smallint
+  language varchar(40)
+  cover_image_url text
+  created_at timestamptz [not null, default: `now()`]
+  updated_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+
+  indexes {
+    title [type: gin, name: 'idx_book_title_fts']
+    description [type: gin, name: 'idx_book_description_fts']
+  }
+}
+
+Table BookAuthor {
+  book_id uuid [not null, ref: > Book.id]
+  author_id uuid [not null, ref: > Author.id]
+
+  indexes {
+    (book_id, author_id) [pk]
+  }
+}
+
+Table BookCategory {
+  book_id uuid [not null, ref: > Book.id]
+  category_id uuid [not null, ref: > Category.id]
+
+  indexes {
+    (book_id, category_id) [pk]
+  }
+}
+
+Table Tag {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(60) [not null, unique]
+}
+
+Table BookTag {
+  book_id uuid [not null, ref: > Book.id]
+  tag_id uuid [not null, ref: > Tag.id]
+
+  indexes {
+    (book_id, tag_id) [pk]
+  }
+}
+
+Table BookCopy {
+  id uuid [pk, default: `gen_random_uuid()`]
+  book_id uuid [not null, ref: > Book.id]
+  copy_number integer [not null]
+  scan_token varchar(64) [not null, unique]
+  condition book_copy_condition [not null, default: 'good']
+  replacement_cost numeric(10,2)
+  status book_copy_status [not null, default: 'available']
+  acquired_at date
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (book_id, copy_number) [unique]
+  }
+}
+
+//////////////////////////////////////////////
+// BORROWING
+//////////////////////////////////////////////
+
+Table FineRule {
+  id uuid [pk, default: `gen_random_uuid()`]
+  category_id uuid [ref: > Category.id] // null = global rule
+  grace_period_days integer [not null, default: 0]
+  daily_rate numeric(10,2) [not null]
+  max_cap numeric(10,2)
+  effective_from date [not null]
+}
+
+Table Loan {
+  id uuid [pk, default: `gen_random_uuid()`]
+  book_copy_id uuid [not null, ref: > BookCopy.id]
+  member_id uuid [not null, ref: > User.id]
+  issued_by uuid [not null, ref: > User.id]
+  issued_at timestamptz [not null, default: `now()`]
+  due_at timestamptz [not null]
+  returned_at timestamptz
+  renewed_count integer [not null, default: 0]
+  status loan_status [not null, default: 'active']
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (status, due_at) [name: 'idx_loan_status_due']
+  }
+}
+
+Table Fine {
+  id uuid [pk, default: `gen_random_uuid()`]
+  loan_id uuid [not null, unique, ref: - Loan.id]
+  amount numeric(10,2) [not null]
+  reason text
+  status fine_status [not null, default: 'pending']
+  waived_by uuid [ref: > User.id]
+  waived_reason text
+  created_at timestamptz [not null, default: `now()`]
+}
+
+//////////////////////////////////////////////
+// RESERVATIONS
+//////////////////////////////////////////////
+
+Table Reservation {
+  id uuid [pk, default: `gen_random_uuid()`]
+  book_id uuid [not null, ref: > Book.id]
+  member_id uuid [not null, ref: > User.id]
+  queue_position integer [not null]
+  status reservation_status [not null, default: 'pending']
+  requested_at timestamptz [not null, default: `now()`]
+  ready_expires_at timestamptz
+
+  indexes {
+    (book_id, status) [name: 'idx_reservation_book_status']
+  }
+}
+
+//////////////////////////////////////////////
+// SEAT MANAGEMENT
+//////////////////////////////////////////////
+
+Table Branch {
+  id uuid [pk, default: `gen_random_uuid()`]
+  name varchar(120) [not null, unique]
+  address text
+  city varchar(80)
+  phone varchar(20)
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table SeatZone {
+  id uuid [pk, default: `gen_random_uuid()`]
+  branch_id uuid [not null, ref: > Branch.id]
+  name varchar(80) [not null]
+  description text
+  capacity integer
+  is_active boolean [not null, default: true]
+}
+
+Table Seat {
+  id uuid [pk, default: `gen_random_uuid()`]
+  zone_id uuid [not null, ref: > SeatZone.id]
+  seat_number varchar(20) [not null]
+  scan_token varchar(64) [not null, unique]
+  status seat_status [not null, default: 'active']
+
+  indexes {
+    (zone_id, seat_number) [unique]
+  }
+}
+
+Table SeatBooking {
+  id uuid [pk, default: `gen_random_uuid()`]
+  seat_id uuid [not null, ref: > Seat.id]
+  member_id uuid [not null, ref: > User.id]
+  booking_date date [not null]
+  start_time time [not null]
+  end_time time [not null]
+  status seat_booking_status [not null, default: 'booked']
+  checked_in_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (seat_id, booking_date) [name: 'idx_seatbooking_seat_date']
+  }
+}
+
+//////////////////////////////////////////////
+// PAYMENTS
+//////////////////////////////////////////////
+
+Table Payment {
+  id uuid [pk, default: `gen_random_uuid()`]
+  member_id uuid [not null, ref: > User.id]
+  type payment_type [not null]
+  amount numeric(10,2) [not null]
+  status payment_status [not null, default: 'pending']
+  provider varchar(60)
+  provider_reference varchar(120)
+  related_entity_type varchar(40) // e.g. 'membership', 'fine'
+  related_entity_id uuid
+  paid_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (status, paid_at) [name: 'idx_payment_status_paid']
+  }
+}
+
+//////////////////////////////////////////////
+// COMMUNITY
+//////////////////////////////////////////////
+
+Table DiscussionRoom {
+  id uuid [pk, default: `gen_random_uuid()`]
+  book_id uuid [ref: > Book.id] // null = general room
+  title varchar(150) [not null]
+  created_by uuid [not null, ref: > User.id]
+  is_active boolean [not null, default: true]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table DiscussionMessage {
+  id uuid [pk, default: `gen_random_uuid()`]
+  room_id uuid [not null, ref: > DiscussionRoom.id]
+  author_id uuid [not null, ref: > User.id]
+  body text [not null]
+  created_at timestamptz [not null, default: `now()`]
+  deleted_at timestamptz
+}
+
+Table Review {
+  id uuid [pk, default: `gen_random_uuid()`]
+  book_id uuid [not null, ref: > Book.id]
+  member_id uuid [not null, ref: > User.id]
+  rating smallint [not null] // 1-5
+  body text
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (book_id, member_id) [unique]
+  }
+}
+
+Table QuoteOfTheDay {
+  id uuid [pk, default: `gen_random_uuid()`]
+  quote_text text [not null]
+  author_name varchar(150)
+  active_date date [not null, unique]
+  created_by uuid [not null, ref: > User.id]
+}
+
+Table ContentReport {
+  id uuid [pk, default: `gen_random_uuid()`]
+  reporter_id uuid [not null, ref: > User.id]
+  target_type content_report_target_type [not null]
+  target_id uuid [not null]
+  reason text
+  status content_report_status [not null, default: 'pending']
+  reviewed_by uuid [ref: > User.id]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table Donation {
+  id uuid [pk, default: `gen_random_uuid()`]
+  donor_id uuid [not null, ref: > User.id]
+  book_title varchar(255) [not null]
+  condition book_copy_condition [not null, default: 'good']
+  status donation_status [not null, default: 'pending']
+  approved_by uuid [ref: > User.id]
+  created_at timestamptz [not null, default: `now()`]
+}
+
+//////////////////////////////////////////////
+// NOTIFICATIONS
+//////////////////////////////////////////////
+
+Table NotificationTemplate {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(80) [not null, unique]
+  channel notification_channel [not null]
+  subject_template text
+  body_template text [not null]
+}
+
+Table Notification {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > User.id]
+  template_id uuid [not null, ref: > NotificationTemplate.id]
+  channel notification_channel [not null]
+  payload jsonb
+  status notification_status [not null, default: 'pending']
+  sent_at timestamptz
+  created_at timestamptz [not null, default: `now()`]
+}
+
+Table NotificationPreference {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > User.id]
+  channel notification_channel [not null]
+  is_enabled boolean [not null, default: true]
+
+  indexes {
+    (user_id, channel) [unique]
+  }
+}
+
+//////////////////////////////////////////////
+// GAMIFICATION
+//////////////////////////////////////////////
+
+Table AchievementDefinition {
+  id uuid [pk, default: `gen_random_uuid()`]
+  code varchar(80) [not null, unique]
+  title varchar(150) [not null]
+  description text
+  points integer [not null, default: 0]
+  icon_url text
+}
+
+Table MemberAchievement {
+  id uuid [pk, default: `gen_random_uuid()`]
+  member_id uuid [not null, ref: > User.id]
+  achievement_id uuid [not null, ref: > AchievementDefinition.id]
+  earned_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (member_id, achievement_id) [unique]
+  }
+}
+
+Table ActivityEvent {
+  id uuid [pk, default: `gen_random_uuid()`]
+  member_id uuid [not null, ref: > User.id]
+  event_type varchar(60) [not null] // book_borrowed | review_posted | donation_approved | ...
+  points integer [not null, default: 0]
+  metadata jsonb
+  created_at timestamptz [not null, default: `now()`]
+
+  indexes {
+    (member_id, created_at) [name: 'idx_activityevent_member_created']
+  }
+}
+
+//////////////////////////////////////////////
+// AI
+//////////////////////////////////////////////
+
+Table AIQueryLog {
+  id uuid [pk, default: `gen_random_uuid()`]
+  user_id uuid [not null, ref: > User.id]
+  query_type varchar(40) [not null] // mood_recommendation | smart_search
+  query_text text [not null]
+  response_summary text
+  created_at timestamptz [not null, default: `now()`]
+}
+
+//////////////////////////////////////////////
+// CROSS-CUTTING
+//////////////////////////////////////////////
+
+Table AuditLog {
+  id uuid [pk, default: `gen_random_uuid()`]
+  actor_id uuid [not null, ref: > User.id]
+  action varchar(80) [not null]
+  target_type varchar(60) [not null]
+  target_id uuid [not null]
+  before_state jsonb
+  after_state jsonb
+  created_at timestamptz [not null, default: `now()`]
+}

@@ -1,0 +1,188 @@
+@import 'tailwindcss';
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --font-sans:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+
+  --color-background: #f8fafc;
+  --color-surface: #ffffff;
+  --color-border: #e2e8f0;
+  --color-border-muted: #edf1f5;
+
+  --color-foreground: #0f172a;
+  --color-muted: #475569;
+  --color-muted-foreground: #556277;
+
+  --color-primary: #731c7b;
+  --color-primary-foreground: #ffffff;
+  --color-primary-hover: #5c1663;
+
+  --color-secondary: #f1f5f9;
+  --color-secondary-foreground: #0f172a;
+
+  --color-success: #166534;
+  --color-success-foreground: #ffffff;
+  --color-warning: #92400e;
+  --color-warning-foreground: #ffffff;
+  --color-danger: #b91c1c;
+  --color-danger-foreground: #ffffff;
+  --color-info: #1d4ed8;
+  --color-info-foreground: #ffffff;
+
+  --color-ink: #4a044e;
+  --color-ink-foreground: #fdf4ff;
+  --color-ink-muted: #f0abfc;
+
+  /* A 3rd categorical chart color (identity, not status) — validated against
+     styles.css's own surfaces via the dataviz skill's palette checker (CVD
+     separation + lightness band both pass in light and dark with this single
+     value, so unlike primary/info it needs no per-mode override). */
+  --color-teal: #0d9488;
+
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+
+  --shadow-panel: 0 8px 24px rgba(15, 23, 42, 0.1);
+}
+
+.dark {
+  --color-background: #0b1220;
+  --color-surface: #131b2c;
+  --color-border: #232f42;
+  --color-border-muted: #1c2536;
+
+  --color-foreground: #e2e8f0;
+  --color-muted: #94a3b8;
+  /* Was #7c8ba1 — exactly 4.97:1 on --color-surface, which left no headroom: any
+     translucent tint over that surface (SidebarPromo's dark:bg-primary/10 composites to
+     #25203d) dropped it to 4.48:1 and failed axe's 4.5:1 check on every app-shell page.
+     #8b98ac clears 5.3:1 through the tint and 5.9:1 on bare surface. */
+  --color-muted-foreground: #8b98ac;
+
+  --color-secondary: #1b2536;
+  --color-secondary-foreground: #e2e8f0;
+
+  /* Bright enough for brand text on both dark surfaces, paired with a dark
+     foreground for filled controls so both combinations clear WCAG AA. */
+  --color-primary: #ca50d4;
+  --color-primary-foreground: #0b1220;
+  --color-primary-hover: #d05bda;
+
+  /* Light semantic colors remain legible as text on dark cards. Their paired
+     dark foregrounds keep filled badges/buttons accessible as well. */
+  --color-success: #4ade80;
+  --color-success-foreground: #052e16;
+  --color-warning: #fbbf24;
+  --color-warning-foreground: #451a03;
+  --color-danger: #fb7185;
+  --color-danger-foreground: #450a0a;
+  --color-info: #60a5fa;
+  --color-info-foreground: #0c1a33;
+
+  --color-ink: #5b0c63;
+  --color-ink-foreground: #fdf4ff;
+  --color-ink-muted: #f0abfc;
+
+  --shadow-panel: 0 8px 24px rgba(0, 0, 0, 0.45);
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+
+  html {
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+    color: var(--color-foreground);
+    background: var(--color-background);
+    font-family: var(--font-sans);
+  }
+
+  button,
+  input,
+  textarea,
+  select {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .blob {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 42% 58% 69% 31% / 45% 41% 59% 55%;
+    background: radial-gradient(circle at 32% 32%, var(--color-primary), transparent 72%);
+  }
+
+  .seat-available {
+    animation: seat-glow 2.6s ease-in-out infinite;
+  }
+
+  .seat-reserved {
+    animation: seat-pulse 1.8s ease-in-out infinite;
+  }
+
+  .seat-occupied {
+    animation: seat-breathe 3.4s ease-in-out infinite;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      scroll-behavior: auto !important;
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+
+    .seat-available,
+    .seat-reserved,
+    .seat-occupied {
+      animation: none;
+    }
+  }
+}
+
+@keyframes seat-glow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+@keyframes seat-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.62;
+  }
+}
+
+@keyframes seat-breathe {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.035);
+  }
+}

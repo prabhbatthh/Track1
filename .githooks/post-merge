@@ -1,0 +1,4 @@
+#!/bin/sh
+# Fires after `git merge` completes, including the merge half of `git pull`.
+# ORIG_HEAD is what git set HEAD to just before this merge started.
+"$(git rev-parse --show-toplevel)/.githooks/lib/regenerate-prisma-if-schema-changed.sh" ORIG_HEAD HEAD

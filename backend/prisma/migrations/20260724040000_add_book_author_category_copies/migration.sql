@@ -1,0 +1,5 @@
+-- AlterTable
+ALTER TABLE "books"
+    ADD COLUMN "author" VARCHAR(150) NOT NULL,
+    ADD COLUMN "category" VARCHAR(80) NOT NULL,
+    ADD COLUMN "total_copies" INTEGER NOT NULL DEFAULT 0;

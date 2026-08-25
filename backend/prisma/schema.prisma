@@ -1,0 +1,666 @@
+generator client {
+  provider             = "prisma-client-py"
+  interface            = "asyncio"
+  recursive_type_depth = 5
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Role {
+  id          String  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String  @unique @db.VarChar(40)
+  description String?
+
+  users User[]
+
+  @@map("roles")
+}
+
+model User {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email        String    @unique @db.VarChar(255)
+  passwordHash String?   @map("password_hash") @db.VarChar(255)
+  fullName     String    @map("full_name") @db.VarChar(150)
+  phone        String?   @db.VarChar(20)
+  avatarUrl    String?   @map("avatar_url")
+  roleId       String    @map("role_id") @db.Uuid
+  role         Role      @relation(fields: [roleId], references: [id])
+  isActive     Boolean   @default(true) @map("is_active")
+  tokenVersion Int       @default(0) @map("token_version")
+  lastLoginAt  DateTime? @map("last_login_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt    DateTime? @map("deleted_at")
+
+  // Cached AI reading profile (top interests/difficulty/preference/insight) — see
+  // members/reading_profile.py. readingProfileActivityCount records the member's total
+  // loan+review+reservation count when it was generated, same staleness-by-count check
+  // as Book.reviewDigest/reviewDigestReviewCount — regenerated only once new activity
+  // has actually happened, not on every profile page load.
+  readingProfile               Json? @map("reading_profile")
+  readingProfileActivityCount  Int?  @map("reading_profile_activity_count")
+
+  payments        Payment[]
+  readingProgress ReadingProgress[] @relation("MemberReadingProgress")
+  readingGoal     ReadingGoal?      @relation("MemberReadingGoal")
+  loginActivity   LoginActivity[]   @relation("MemberLoginActivity")
+  guardianOf      GuardianLink[]    @relation("GuardianLinkGuardian")
+  guardianLink    GuardianLink?     @relation("GuardianLinkMember")
+  reservations    Reservation[]     @relation("MemberReservations")
+
+  communityPosts          CommunityPost[]          @relation("CommunityPostAuthor")
+  communityComments       CommunityComment[]       @relation("CommunityCommentAuthor")
+  communityPostLikes      CommunityPostLike[]      @relation("CommunityPostLikeUser")
+  communityPostSaves      CommunityPostSave[]      @relation("CommunityPostSaveUser")
+  communityPostReports    CommunityPostReport[]    @relation("CommunityPostReportUser")
+  communityCommentReports CommunityCommentReport[] @relation("CommunityCommentReportUser")
+  communityBan            CommunityBan?            @relation("CommunityBanUser")
+
+  seatBookings       SeatBooking[]       @relation("SeatBookingMember")
+  seatNotifyRequests SeatNotifyRequest[] @relation("SeatNotifyRequestMember")
+  notifications      Notification[]      @relation("NotificationUser")
+  reviews            Review[]            @relation("MemberReview")
+  loggedExpenses     Expense[]           @relation("ExpenseLoggedBy")
+
+  libraryReviews        LibraryReview[] @relation("LibraryReviewMember")
+  libraryReviewsDecided LibraryReview[] @relation("LibraryReviewDecidedBy")
+
+  wishlist Wishlist[] @relation("WishlistMember")
+
+  billingRequestsAsMember BillingRequest[] @relation("BillingRequestMember")
+  billingRequestsFiled    BillingRequest[] @relation("BillingRequestCreatedBy")
+  billingRequestsDecided  BillingRequest[] @relation("BillingRequestDecidedBy")
+
+  auditLogEntries AuditLogEntry[] @relation("AuditLogActor")
+  couponsCreated  Coupon[]        @relation("CouponCreatedBy")
+
+  supportTicketsRaised   SupportTicket[] @relation("SupportTicketRaisedBy")
+  supportTicketsResolved SupportTicket[] @relation("SupportTicketResolvedBy")
+
+  createdEvents      Event[]             @relation("EventCreator")
+  eventRegistrations EventRegistration[] @relation("MemberEventRegistrations")
+
+  permissionRequestsFiled   PermissionRequest[] @relation("PermissionRequestRequestedBy")
+  permissionRequestsDecided PermissionRequest[] @relation("PermissionRequestDecidedBy")
+
+  loans        Loan[] @relation("LoanMember")
+  loansCreated Loan[] @relation("LoanCreatedBy")
+
+  eventManagerAssignments EventManagerAssignment[] @relation("EventManagerAssignment")
+
+  bookRecordsLogged BookRecord[] @relation("BookRecordLoggedBy")
+
+  libraryVisits         LibraryVisit[] @relation("LibraryVisitMember")
+  recordedLibraryVisits LibraryVisit[] @relation("LibraryVisitRecordedBy")
+
+  @@map("users")
+}
+
+model GuardianLink {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  guardianId String   @map("guardian_id") @db.Uuid
+  guardian   User     @relation("GuardianLinkGuardian", fields: [guardianId], references: [id])
+  memberId   String   @unique @map("member_id") @db.Uuid
+  member     User     @relation("GuardianLinkMember", fields: [memberId], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+  // When the monthly reading-digest sweep last notified this guardian about this child.
+  // Same role as Loan.lastRemindedAt — without it, every server restart would re-send
+  // the digest for the rest of the month instead of sending it once.
+  lastDigestSentAt DateTime? @map("last_digest_sent_at")
+
+  @@map("guardian_links")
+}
+
+model Payment {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id])
+  amount     Int
+  label      String   @db.VarChar(255)
+  status     String   @default("success") @db.VarChar(20)
+  planMonths Int?     @map("plan_months")
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  // Only set for gateway-verified payments (razorpay/verify), never for the direct
+  // /payments or pay-at-library paths. Unique so a retried verify call - same
+  // still-valid signature, same payment ID - can't record the same money twice;
+  // Postgres treats multiple NULLs as distinct, so the other two paths are unaffected.
+  razorpayPaymentId String? @unique @map("razorpay_payment_id") @db.VarChar(64)
+  razorpayOrderId   String? @map("razorpay_order_id") @db.VarChar(64)
+
+  @@index([userId, createdAt])
+  @@map("payments")
+}
+
+model Book {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title         String    @db.VarChar(255)
+  author        String    @db.VarChar(150)
+  category      String    @db.VarChar(80)
+  isbn          String?   @unique @db.VarChar(20)
+  description   String?
+  publisher     String?   @db.VarChar(150)
+  publishedYear Int?      @map("published_year")
+  language      String?   @db.VarChar(40)
+  coverImageUrl String?   @map("cover_image_url")
+  totalCopies   Int       @default(0) @map("total_copies")
+  // Free-text physical location, e.g. "Aisle 3, Shelf B" — display-only, not searchable.
+  shelfLocation String?   @map("shelf_location") @db.VarChar(120)
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt     DateTime? @map("deleted_at")
+
+  // AI-generated "what readers are saying" summary, cached so it's regenerated only
+  // when the review count actually changes rather than on every page load.
+  // reviewDigestReviewCount records how many reviews existed when it was generated —
+  // a mismatch with the live review count means the cache is stale.
+  reviewDigest            String? @map("review_digest")
+  reviewDigestReviewCount Int?    @map("review_digest_review_count")
+
+  // Cached embedding vector (title+author+category+description) for the "You may also
+  // like" similarity ranking — see books/embeddings.py. Empty until first computed;
+  // cleared back to [] whenever an edit touches one of the fields it was built from, so
+  // it's lazily recomputed on the next read instead of silently going stale.
+  embedding Float[] @default([]) @map("embedding")
+
+  // Cached single-call AI analysis (summary/key concepts/themes/difficulty/vocabulary/
+  // prerequisites/why-read) — see books/insights.py. Null until first requested; cleared
+  // whenever an edit touches the fields it was built from, same invalidation trigger as
+  // embedding above.
+  aiInsights Json? @map("ai_insights")
+
+  readingProgress ReadingProgress[]
+  reservations    Reservation[]
+  reviews         Review[]
+  loans           Loan[]
+  bookRecords     BookRecord[]
+  wishlistedBy    Wishlist[]
+
+  @@map("books")
+}
+
+// A member's saved-for-later list — any authenticated role can hold one, same as book
+// browsing itself isn't member-only. Structurally identical to CommunityPostSave (a
+// plain (member, book) toggle join), copied rather than reinvented.
+model Wishlist {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId  String   @map("member_id") @db.Uuid
+  member    User     @relation("WishlistMember", fields: [memberId], references: [id], onDelete: Cascade)
+  bookId    String   @map("book_id") @db.Uuid
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([memberId, bookId])
+  @@map("wishlists")
+}
+
+model Event {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String    @db.VarChar(255)
+  description String?
+  location    String    @db.VarChar(255)
+  date        DateTime
+  capacity    Int
+  createdBy   String    @map("created_by") @db.Uuid
+  creator     User      @relation("EventCreator", fields: [createdBy], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt   DateTime? @map("deleted_at")
+
+  registrations      EventRegistration[]
+  managerAssignments EventManagerAssignment[]
+
+  @@map("events")
+}
+
+model EventRegistration {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  memberId  String   @map("member_id") @db.Uuid
+  member    User     @relation("MemberEventRegistrations", fields: [memberId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([eventId, memberId])
+  @@map("event_registrations")
+}
+
+// A manager helping run an event, separate from the single creator on Event.createdBy -
+// many-to-many so bigger events can have several managers assigned (the creator can
+// assign themselves too, they're just another manager-role user).
+model EventManagerAssignment {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  eventId   String   @map("event_id") @db.Uuid
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  managerId String   @map("manager_id") @db.Uuid
+  manager   User     @relation("EventManagerAssignment", fields: [managerId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([eventId, managerId])
+  @@map("event_manager_assignments")
+}
+
+// ponytail: one active goal per member (upsert), not a history of past years' goals -
+// add a `year` + unique(memberId, year) if tracking goals across years matters later.
+model ReadingGoal {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId    String   @unique @map("member_id") @db.Uuid
+  member      User     @relation("MemberReadingGoal", fields: [memberId], references: [id])
+  yearlyGoal  Int      @map("yearly_goal")
+  monthlyGoal Int      @map("monthly_goal")
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("reading_goals")
+}
+
+model LoginActivity {
+  id       String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId String   @map("member_id") @db.Uuid
+  member   User     @relation("MemberLoginActivity", fields: [memberId], references: [id], onDelete: Cascade)
+  date     DateTime @db.Date
+
+  @@unique([memberId, date])
+  @@map("login_activity")
+}
+
+model ReadingProgress {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId        String   @map("member_id") @db.Uuid
+  member          User     @relation("MemberReadingProgress", fields: [memberId], references: [id])
+  bookId          String   @map("book_id") @db.Uuid
+  book            Book     @relation(fields: [bookId], references: [id])
+  status          String   @default("reading") @db.VarChar(20)
+  percentComplete Int      @default(0) @map("percent_complete")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([memberId, bookId])
+  @@map("reading_progress")
+}
+
+// ponytail: images are stored as data: URLs in a text array, not files in an object
+// store - no upload/CDN infra exists yet (see avatarPresets.ts). Fine at this scale;
+// swap for real object storage + URL column if posts start carrying many/large images.
+model Review {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookId    String   @map("book_id") @db.Uuid
+  book      Book     @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  memberId  String   @map("member_id") @db.Uuid
+  member    User     @relation("MemberReview", fields: [memberId], references: [id], onDelete: Cascade)
+  rating    Int
+  comment   String
+  images    String[]
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([memberId, bookId])
+  @@map("reviews")
+}
+
+// A member's testimonial about the library as a whole, not a specific book — pending
+// until an admin approves it, then shown in the "What Our Members Say" homepage section.
+// Distinct from Review (book review), which is unmoderated and always book-scoped.
+model LibraryReview {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId    String    @map("member_id") @db.Uuid
+  member      User      @relation("LibraryReviewMember", fields: [memberId], references: [id], onDelete: Cascade)
+  rating      Int
+  comment     String
+  status      String    @default("pending") @db.VarChar(20) // pending | approved | rejected
+  decidedById String?   @map("decided_by_id") @db.Uuid
+  decidedBy   User?     @relation("LibraryReviewDecidedBy", fields: [decidedById], references: [id])
+  decidedAt   DateTime? @map("decided_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("library_reviews")
+}
+
+// status: pending (awaiting manager decision) -> approved (a Loan now tracks the due
+// date/fine) | rejected | cancelled (member backed out while still pending).
+model Reservation {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId  String   @map("member_id") @db.Uuid
+  member    User     @relation("MemberReservations", fields: [memberId], references: [id])
+  bookId    String   @map("book_id") @db.Uuid
+  book      Book     @relation(fields: [bookId], references: [id])
+  status    String   @default("pending") @db.VarChar(20)
+  loanId    String?  @unique @map("loan_id") @db.Uuid
+  loan      Loan?    @relation(fields: [loanId], references: [id])
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("reservations")
+}
+
+model CommunityPost {
+  id        String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  authorId  String    @map("author_id") @db.Uuid
+  author    User      @relation("CommunityPostAuthor", fields: [authorId], references: [id])
+  bookTitle String?   @map("book_title") @db.VarChar(255)
+  content   String
+  images    String[]
+  reported  Boolean   @default(false)
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+
+  comments CommunityComment[]
+  likes    CommunityPostLike[]
+  saves    CommunityPostSave[]
+  reports  CommunityPostReport[]
+
+  @@map("community_posts")
+}
+
+// ponytail: replies are just comments with a parentId (one self-relation) - no
+// separate "reply" model. UI only ever renders one level of nesting today.
+model CommunityComment {
+  id        String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String                 @map("post_id") @db.Uuid
+  post      CommunityPost          @relation(fields: [postId], references: [id], onDelete: Cascade)
+  authorId  String                 @map("author_id") @db.Uuid
+  author    User                   @relation("CommunityCommentAuthor", fields: [authorId], references: [id])
+  parentId  String?                @map("parent_id") @db.Uuid
+  parent    CommunityComment?      @relation("CommunityCommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies   CommunityComment[]     @relation("CommunityCommentReplies")
+  content   String
+  reported  Boolean                @default(false)
+  createdAt DateTime               @default(now()) @map("created_at")
+  reports   CommunityCommentReport[]
+
+  @@map("community_comments")
+}
+
+model CommunityPostLike {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String        @map("post_id") @db.Uuid
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id") @db.Uuid
+  user      User          @relation("CommunityPostLikeUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@unique([postId, userId])
+  @@map("community_post_likes")
+}
+
+model CommunityPostSave {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String        @map("post_id") @db.Uuid
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id") @db.Uuid
+  user      User          @relation("CommunityPostSaveUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@unique([postId, userId])
+  @@map("community_post_saves")
+}
+
+model CommunityPostReport {
+  id        String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  postId    String        @map("post_id") @db.Uuid
+  post      CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  userId    String        @map("user_id") @db.Uuid
+  user      User          @relation("CommunityPostReportUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime      @default(now()) @map("created_at")
+
+  @@unique([postId, userId])
+  @@index([userId])
+  @@map("community_post_reports")
+}
+
+model CommunityCommentReport {
+  id        String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  commentId String           @map("comment_id") @db.Uuid
+  comment   CommunityComment @relation(fields: [commentId], references: [id], onDelete: Cascade)
+  userId    String           @map("user_id") @db.Uuid
+  user      User             @relation("CommunityCommentReportUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  @@unique([commentId, userId])
+  @@index([userId])
+  @@map("community_comment_reports")
+}
+
+// Presence of a row = banned from Community. IT-head/admin-only action, scoped to
+// this feature (not a full account suspension).
+model CommunityBan {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @unique @map("user_id") @db.Uuid
+  user      User     @relation("CommunityBanUser", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("community_bans")
+}
+
+// ponytail: seats are a fixed 32-seat layout (rows A-D x seats 1-8, same as the
+// frontend's hardcoded grid) - no separate Seat table, just a label string per
+// booking. Cancelling a booking deletes the row (no history yet), which is also
+// what makes the unique constraint below double as the double-booking guard -
+// a slot is free exactly when no row exists for it.
+model SeatBooking {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId  String   @map("member_id") @db.Uuid
+  member    User     @relation("SeatBookingMember", fields: [memberId], references: [id])
+  seatLabel String   @map("seat_label") @db.VarChar(4)
+  date      DateTime @db.Date
+  hour      Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([seatLabel, date, hour])
+  @@unique([memberId, date, hour])
+  @@map("seat_bookings")
+}
+
+// A one-shot "tell me when this slot frees up" request - consumed (deleted) the
+// moment the matching SeatBooking is cancelled, after firing a Notification.
+model SeatNotifyRequest {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId  String   @map("member_id") @db.Uuid
+  member    User     @relation("SeatNotifyRequestMember", fields: [memberId], references: [id])
+  seatLabel String   @map("seat_label") @db.VarChar(4)
+  date      DateTime @db.Date
+  hour      Int
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@unique([seatLabel, date, hour, memberId])
+  @@map("seat_notify_requests")
+}
+
+// ponytail: a generic in-app notification (type + a pre-rendered message string),
+// not yet wired to most of the app's events - today only seat-availability alerts
+// create real rows here. The Notifications bell/panel elsewhere still shows mock
+// sample data for other notification kinds until those event sources go real too.
+model Notification {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  user      User     @relation("NotificationUser", fields: [userId], references: [id], onDelete: Cascade)
+  type      String   @db.VarChar(40)
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("notifications")
+}
+
+// ponytail: logs actual spend only - the budgeted amount per category is a static
+// constant (see admin/constants.py), not stored here, since no "set budget" UI exists yet.
+model Expense {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  category   String   @db.VarChar(40)
+  amount     Int
+  loggedById String   @map("logged_by_id") @db.Uuid
+  loggedBy   User     @relation("ExpenseLoggedBy", fields: [loggedById], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("expenses")
+}
+
+// IT-Head's log of non-loan book events - lost, donated, or purchased copies.
+// type: "lost" | "donated" | "purchased".
+model BookRecord {
+  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookId     String   @map("book_id") @db.Uuid
+  book       Book     @relation(fields: [bookId], references: [id])
+  type       String   @db.VarChar(20)
+  note       String?
+  loggedById String   @map("logged_by_id") @db.Uuid
+  loggedBy   User     @relation("BookRecordLoggedBy", fields: [loggedById], references: [id])
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("book_records")
+}
+
+// ponytail: only refunds and fee waivers go through this approval queue - membership
+// renewal is payment-driven (see Payment.planMonths), not a request anyone approves.
+// Filed by a manager on a member's behalf (members can't file their own); decided by
+// an admin. No money actually moves - this records the decision, same as Payment
+// records an event without a real gateway behind it yet.
+model BillingRequest {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId    String    @map("member_id") @db.Uuid
+  member      User      @relation("BillingRequestMember", fields: [memberId], references: [id])
+  createdById String    @map("created_by_id") @db.Uuid
+  createdBy   User      @relation("BillingRequestCreatedBy", fields: [createdById], references: [id])
+  type        String    @db.VarChar(20) // refund | fee_waiver
+  amount      Int
+  reason      String
+  status      String    @default("pending") @db.VarChar(20) // pending | approved | rejected
+  decidedById String?   @map("decided_by_id") @db.Uuid
+  decidedBy   User?     @relation("BillingRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedAt   DateTime? @map("decided_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("billing_requests")
+}
+
+// One row per admin-facing financial action (expense logged, billing request decided).
+// `metadata` holds the action-specific display data (amount, category, member name, ...)
+// so the frontend can render a sentence per `action` key without extra joins.
+model AuditLogEntry {
+  id        String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  actorId   String   @map("actor_id") @db.Uuid
+  actor     User     @relation("AuditLogActor", fields: [actorId], references: [id])
+  action    String   @db.VarChar(40)
+  metadata  Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("audit_log_entries")
+}
+
+// The 4 rows here are fixed (1m/3m/6m/12m - seeded by scripts/seed_pricing_plans.py,
+// never created/deleted through the API) - admins only ever update price/savePercent.
+// planId is the stable key the frontend joins against i18n copy (pricing.durations.<planId>.*)
+// and Payment.planMonths (a payment for a plan stores months, not planId, since fine
+// payments have no plan at all).
+model PricingPlan {
+  id          String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  planId      String   @unique @map("plan_id") @db.VarChar(10)
+  months      Int
+  price       Int
+  savePercent Int      @default(0) @map("save_percent")
+  badge       String?  @db.VarChar(20) // "mostPopular" | "bestValue" | null
+  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("pricing_plans")
+}
+
+// One code shared by up to maxUses people - not a batch of individual codes. usesCount
+// increments each time a successful payment redeems it (see payments module); once it
+// reaches maxUses the code stops validating. No expiry/deactivation yet - ponytail.
+model Coupon {
+  id              String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code            String   @unique @db.VarChar(20)
+  discountPercent Int      @map("discount_percent")
+  maxUses         Int      @map("max_uses")
+  usesCount       Int      @default(0) @map("uses_count")
+  createdById     String   @map("created_by_id") @db.Uuid
+  createdBy       User     @relation("CouponCreatedBy", fields: [createdById], references: [id])
+  createdAt       DateTime @default(now()) @map("created_at")
+
+  @@map("coupons")
+}
+
+// Raised by a member or guardian, category-gated per raiser role at the API level (not
+// enforced here, since one string column has to serve both role's category sets). Only
+// 3 statuses - open -> resolved (staff wrote a resolutionNote) -> closed (raiser confirmed
+// it's actually fixed); rejecting a resolution just puts it back to "open" rather than
+// tracking a separate "reopened" state, since the resolutionNote already shows staff's
+// last attempt.
+model SupportTicket {
+  id             String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  raisedById     String    @map("raised_by_id") @db.Uuid
+  raisedBy       User      @relation("SupportTicketRaisedBy", fields: [raisedById], references: [id])
+  category       String    @db.VarChar(30)
+  description    String
+  status         String    @default("open") @db.VarChar(20) // open | resolved | closed
+  resolutionNote String?   @map("resolution_note")
+  resolvedById   String?   @map("resolved_by_id") @db.Uuid
+  resolvedBy     User?     @relation("SupportTicketResolvedBy", fields: [resolvedById], references: [id])
+  resolvedAt     DateTime? @map("resolved_at")
+  closedAt       DateTime? @map("closed_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@map("support_tickets")
+}
+
+// A manager/librarian requesting a specific elevated action be authorized (e.g. "approve
+// fine waivers") - decided by an IT Head. Like BillingRequest, this only records the
+// decision; there's no fine-grained permission-enforcement system behind it yet, so
+// granting one doesn't change what the requester can actually do in the app today.
+model PermissionRequest {
+  id            String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  requestedById String    @map("requested_by_id") @db.Uuid
+  requestedBy   User      @relation("PermissionRequestRequestedBy", fields: [requestedById], references: [id])
+  permission    String    @db.VarChar(100)
+  reason        String
+  status        String    @default("pending") @db.VarChar(20) // pending | granted | denied
+  decidedById   String?   @map("decided_by_id") @db.Uuid
+  decidedBy     User?     @relation("PermissionRequestDecidedBy", fields: [decidedById], references: [id])
+  decidedAt     DateTime? @map("decided_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+
+  @@map("permission_requests")
+}
+
+// ponytail: no per-copy tracking (see Book.totalCopies comment) - a loan just decrements
+// availability conceptually, it doesn't reference a specific physical copy. Fine amount
+// is computed on read from (returnedAt ?? now) vs dueDate, not stored, so it can't drift;
+// only whether it's been settled (finePaid) is persisted.
+model Loan {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  bookId      String    @map("book_id") @db.Uuid
+  book        Book      @relation(fields: [bookId], references: [id])
+  memberId    String    @map("member_id") @db.Uuid
+  member      User      @relation("LoanMember", fields: [memberId], references: [id])
+  borrowedAt  DateTime  @default(now()) @map("borrowed_at")
+  dueDate     DateTime  @map("due_date")
+  returnedAt  DateTime? @map("returned_at")
+  finePaid    Boolean   @default(false) @map("fine_paid")
+  lastRemindedAt DateTime? @map("last_reminded_at")
+  createdById String    @map("created_by_id") @db.Uuid
+  createdBy   User      @relation("LoanCreatedBy", fields: [createdById], references: [id])
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  reservation Reservation?
+
+  @@map("loans")
+}
+
+model LibraryVisit {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  memberId     String    @map("member_id") @db.Uuid
+  member       User      @relation("LibraryVisitMember", fields: [memberId], references: [id], onDelete: Cascade)
+  checkedInAt  DateTime  @default(now()) @map("checked_in_at")
+  checkedOutAt DateTime? @map("checked_out_at")
+  recordedById String    @map("recorded_by_id") @db.Uuid
+  recordedBy   User      @relation("LibraryVisitRecordedBy", fields: [recordedById], references: [id])
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@index([memberId])
+  @@index([checkedOutAt])
+  @@index([memberId, checkedOutAt])
+  @@map("library_visits")
+}

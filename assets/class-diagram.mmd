@@ -1,0 +1,202 @@
+classDiagram
+    %% Source of truth: docs/FINAL_SPEC.md (merged PROJECT_SPECIFICATION.md + Project_Specification_V2.md,
+    %% V2 wins on conflicts — see FINAL_SPEC.md's "Conflict Resolutions" table).
+    %% Entities below = the 12-table core schema (docs/Database_Design.md, backend/prisma/schema.prisma).
+    %% Service classes = FINAL_SPEC.md §2's five cross-cutting services, none of which own a table.
+    class Role {
+        +String id
+        +String name
+        +String description
+    }
+    class User {
+        +String id
+        +String email
+        +String passwordHash
+        +String fullName
+        +String phone
+        +String avatarUrl
+        +Boolean isActive
+        +DateTime lastLoginAt
+        +DateTime createdAt
+        +DateTime updatedAt
+        +DateTime deletedAt
+        +register()
+        +login()
+        +resetPassword()
+    }
+    class MembershipPlan {
+        +String id
+        +String name
+        +String description
+        +Integer durationDays
+        +Integer maxActiveLoans
+        +Decimal feeAmount
+        +Boolean isActive
+    }
+    class Membership {
+        +String id
+        +Date startDate
+        +Date endDate
+        +String status
+        +Boolean autoRenew
+        +DateTime createdAt
+        +isActive()
+        +renew()
+    }
+    class Book {
+        +String id
+        +String title
+        +String isbn
+        +String description
+        +Integer publishedYear
+        +String language
+        +String coverImageUrl
+        +DateTime createdAt
+        +DateTime updatedAt
+        +DateTime deletedAt
+        +search()
+        +addCopy()
+    }
+    class BookCopy {
+        +String id
+        +Integer copyNumber
+        +String scanToken
+        +String condition
+        +Decimal replacementCost
+        +String status
+        +Date acquiredAt
+        +DateTime createdAt
+        +markDamaged()
+        +markLost()
+    }
+    class Loan {
+        +String id
+        +DateTime issuedAt
+        +DateTime dueAt
+        +DateTime returnedAt
+        +Integer renewedCount
+        +String status
+        +DateTime createdAt
+        +issue()
+        +returnBook()
+        +renew()
+        +calculateFine()
+    }
+    class Reservation {
+        +String id
+        +Integer queuePosition
+        +String status
+        +DateTime requestedAt
+        +DateTime readyExpiresAt
+        +promoteNext()
+        +cancel()
+    }
+    class Seat {
+        +String id
+        +String seatNumber
+        +String zoneLabel
+        +String scanToken
+        +String status
+    }
+    class SeatBooking {
+        +String id
+        +Date bookingDate
+        +Time startTime
+        +Time endTime
+        +String status
+        +DateTime checkedInAt
+        +DateTime createdAt
+        +checkIn()
+        +cancel()
+    }
+    class Payment {
+        +String id
+        +String type
+        +Decimal amount
+        +String status
+        +String provider
+        +String providerReference
+        +String relatedEntityType
+        +String relatedEntityId
+        +DateTime paidAt
+        +DateTime createdAt
+        +settle()
+    }
+    class Review {
+        +String id
+        +Integer rating
+        +String body
+        +DateTime createdAt
+    }
+
+    class NotificationService {
+        <<service>>
+        +notify(userId, eventType, payload) void
+        +listForUser(userId) Notification[]
+        +markRead(notificationId) void
+        +getPreferences(userId) NotificationPreference
+        +updatePreferences(userId, prefs) void
+    }
+    class AIService {
+        <<service>>
+        +smartSearch(query) Book[]
+        +recommendByMood(userId, mood) Book[]
+        +getRecommendations(userId) Book[]
+        +askLibrarian(userId, query) String
+    }
+    class ScanningService {
+        <<service>>
+        +resolveBookCopy(scanToken) BookCopy
+        +resolveSeat(scanToken) Seat
+    }
+    class AnalyticsService {
+        <<service>>
+        +getPopularBooks(period) Book[]
+        +getRevenueReport(period) Payment[]
+        +getOccupancySnapshot(date) SeatBooking[]
+        +getOverdueSummary() Loan[]
+    }
+    class GamificationEngine {
+        <<service>>
+        +recordEvent(userId, eventType) void
+        +getScore(userId) Integer
+        +getLeaderboard(limit) User[]
+        +getBadges(userId) String[]
+    }
+
+    User "many" --> "1" Role : has
+    Membership "many" --> "1" User : held by
+    Membership "many" --> "1" MembershipPlan : follows
+    BookCopy "many" --> "1" Book : copy of
+    Loan "many" --> "1" BookCopy : borrows
+    Loan "many" --> "1" User : borrowed by (member)
+    Loan "many" --> "1" User : issued by (staff)
+    Reservation "many" --> "1" Book : queued for
+    Reservation "many" --> "1" User : requested by
+    SeatBooking "many" --> "1" Seat : books
+    SeatBooking "many" --> "1" User : booked by
+    Payment "many" --> "1" User : paid by
+    Review "many" --> "1" Book : reviews
+    Review "many" --> "1" User : written by
+
+    Loan ..> NotificationService : publishes loan due/overdue
+    Reservation ..> NotificationService : publishes reservation ready
+    SeatBooking ..> NotificationService : publishes booking confirmed
+    NotificationService ..> User : delivers to
+    AIService ..> Book : searches / recommends
+    ScanningService ..> BookCopy : resolves scan_token
+    ScanningService ..> Seat : resolves scan_token
+    AnalyticsService ..> Loan : aggregates overdue/popular
+    AnalyticsService ..> Payment : aggregates revenue
+    AnalyticsService ..> SeatBooking : aggregates occupancy
+    GamificationEngine ..> Loan : scores borrow activity
+    GamificationEngine ..> Review : scores review activity
+    GamificationEngine ..> SeatBooking : scores attendance
+    GamificationEngine ..> User : ranks
+
+    note for NotificationService "Owns no table (FINAL_SPEC.md §2).\nCross-cutting: other components publish events\nhere instead of sending messages themselves.\nEmail + In-App first (Phase 2), Telegram later\n(Future Scope, Phase 4 per §8)."
+    note for AIService "Owns no table. Sits behind a provider abstraction\n(FINAL_SPEC.md §12). Called 'Recommendation Service'\nin §2: one engine, two entry points — tag/mood filter\n(Advanced, Phase 3) and conversational AI Librarian\n(Future Scope, Phase 4 — v1 had it at Milestone 5;\nConflict Resolutions table: v2's phase wins)."
+    note for ScanningService "Owns no table — BookCopy.scanToken and Seat.scanToken\nalready carry the token. One resolve endpoint routes by\ntoken type instead of two parallel QR implementations\n(FINAL_SPEC.md §2, Important/Phase 2)."
+    note for AnalyticsService "Owns no table — reads pre-aggregated snapshots written\nby scheduled jobs, never live queries (FINAL_SPEC.md §4\nScalability). Consolidates Heatmap + Occupancy + Admin\nReports into one pipeline feeding dashboard widgets\n(Important/Phase 2)."
+    note for GamificationEngine "Owns no table of its own — badges and leaderboard rank\nare derived views over each member's Loan/Review/SeatBooking\nactivity, not separate features (FINAL_SPEC.md §2,\nAdvanced/Phase 3)."
+    note for Role "Role names per FINAL_SPEC.md §1:\nadmin, librarian, manager, member.\nStored as data rows (dynamic RBAC), not a hardcoded enum.\n§4 recommends evolving this into capability-based\npermissions (can_issue_book, can_waive_fine, ...) later."
