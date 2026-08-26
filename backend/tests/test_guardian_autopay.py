@@ -314,6 +314,43 @@ async def test_autopay_duplicate_approval_safety():
 
 
 @pytest.mark.asyncio
+async def test_execute_autonomous_autopay_compliant_fine_success():
+    """Verify Step 1: Autonomous auto-pay executes server-side for compliant fine without manual approval."""
+    guardian, child, link = await setup_guardian_and_child()
+
+    # 3 days overdue fine (@ ₹50/day = ₹150 fine, compliant with ₹200 transaction cap)
+    loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=3, fine_paid=False)
+
+    res = await execute_autonomous_autopay(loan.id)
+
+    # 1. Execution succeeds
+    assert res.success is True
+    assert res.amount == 150
+    assert res.member_id == child.id
+    assert res.guardian_id == guardian.id
+
+    # 2. Fine becomes paid
+    loan_db = await prisma.loan.find_unique(where={"id": loan.id})
+    assert loan_db.finePaid is True
+
+    # 3. Exactly one Payment record created
+    payments = await prisma.payment.find_many(where={"userId": child.id})
+    assert len(payments) == 1
+    assert payments[0].amount == 150
+
+    # 4. Payment label/source indicates Guardian Auto-Pay
+    assert "Guardian Auto-Pay Fine Settlement" in payments[0].label
+
+    # 5. GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED recorded in audit log
+    audit_entries = await prisma.auditlogentry.find_many(
+        where={"actorId": guardian.id, "action": "GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED"}
+    )
+    assert len(audit_entries) == 1
+    assert audit_entries[0].metadata["settlement_type"] == "autonomous_simulated"
+    assert audit_entries[0].metadata["amount"] == 150
+
+
+@pytest.mark.asyncio
 async def test_execute_autonomous_autopay_idempotency():
     """Verify autonomous auto-pay execution is fully idempotent across multiple sequential calls."""
     guardian, child, link = await setup_guardian_and_child()
