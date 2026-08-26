@@ -381,16 +381,25 @@ export function ExternalAIShoppingAgentSimulator({
       </div>
 
       {/* STEP 5: HUMAN SAFETY GATE */}
-      <div className="rounded-2xl border-2 border-amber-300/80 bg-amber-50/50 p-5 dark:border-amber-900/50 dark:bg-amber-950/20">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="rounded-2xl border-2 border-amber-400/90 bg-amber-50/60 p-5 dark:border-amber-700/60 dark:bg-amber-950/30 shadow-xs">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <ShieldCheck className="size-6 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
-            <div>
+            <div className="space-y-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-200/90 px-2.5 py-0.5 text-[10px] font-black uppercase text-amber-950 dark:bg-amber-900/90 dark:text-amber-100 border border-amber-400/60 dark:border-amber-700/60">
+                  <ShieldCheck className="size-3 text-amber-700 dark:text-amber-300" />
+                  MANDATORY CONSENT GATE
+                </span>
+                <span className="text-[11px] font-bold text-amber-900/70 dark:text-amber-300/70">
+                  AI Recommendation → Human Consent → Financial Action
+                </span>
+              </div>
               <h4 className="text-sm font-extrabold text-amber-950 dark:text-amber-100">
-                STEP 5 — HUMAN SAFETY GATE (Mandatory Consent)
+                STEP 5 — Human Approval Consent Gate
               </h4>
               <p className="text-xs text-amber-900/90 dark:text-amber-200/90 leading-relaxed font-medium">
-                AI cannot approve or charge. The member must explicitly review and authorize payment.
+                AI cannot approve or charge. The member must explicitly review and authorize order creation & Razorpay checkout.
               </p>
             </div>
           </div>

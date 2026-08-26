@@ -31,12 +31,12 @@ export function AIUpsellProposal({
       className="relative overflow-hidden rounded-3xl border border-purple-300/90 bg-gradient-to-br from-[#f8f1fc] via-[#f3e6fa] to-[#ebd5f8] p-6 text-left shadow-lg dark:border-purple-800/80 dark:from-purple-950/80 dark:via-purple-950/60 dark:to-zinc-950"
     >
       {/* Top Header Badge */}
-      <div className="flex items-center justify-between">
-        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3b1254] px-3.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-white shadow-sm">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="inline-flex items-center gap-1.5 rounded-full bg-[#3b1254] px-3.5 py-1 font-mono text-[11px] font-bold uppercase tracking-wider text-white shadow-xs">
           <Sparkles className="size-3.5 text-amber-300 animate-pulse" /> AI FOUND A BETTER DEAL
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/20 px-2.5 py-0.5 font-mono text-[11px] font-black text-emerald-800 dark:text-emerald-300 border border-emerald-500/30">
-          <TrendingDown className="size-3" /> {percentText}
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 font-mono text-[11px] font-black text-emerald-900 dark:text-emerald-200 border border-emerald-400/50 dark:border-emerald-700/60 shadow-2xs">
+          <TrendingDown className="size-3 text-emerald-600 dark:text-emerald-400" /> {percentText}
         </span>
       </div>
 

@@ -410,7 +410,7 @@ export function GuardianAutopaySimulator() {
                   className="rounded-xl border-amber-400 dark:border-amber-700 bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/60 dark:hover:bg-amber-900/80 text-amber-900 dark:text-amber-200 font-bold text-xs gap-1.5 shadow-2xs"
                 >
                   <TrendingDown className="size-3.5 text-amber-600" />
-                  <span>Simulate Late Return</span>
+                  <span>Simulate Late Return (Trust Downgrade)</span>
                 </Button>
               ) : (
                 <Button
@@ -421,21 +421,26 @@ export function GuardianAutopaySimulator() {
                   className="rounded-xl border-emerald-400 dark:border-emerald-700 bg-emerald-50 hover:bg-emerald-100 dark:bg-emerald-950/60 dark:hover:bg-emerald-900/80 text-emerald-900 dark:text-emerald-200 font-bold text-xs gap-1.5 shadow-2xs"
                 >
                   <RotateCcw className="size-3.5 text-emerald-600" />
-                  <span>Restore Normal Behavior</span>
+                  <span>Restore Baseline Behavior</span>
                 </Button>
               )}
             </div>
           </div>
 
-          {/* Transition Message Banner */}
+          {/* Transition Message Banner with Governance Audit Badge */}
           {transitionMsg && (
-            <div className="rounded-lg bg-amber-500/10 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2 animate-in fade-in-50 duration-200">
+            <div className="rounded-lg bg-amber-500/10 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-3 text-xs text-amber-900 dark:text-amber-200 flex items-start gap-2.5 animate-in fade-in-50 duration-200 shadow-2xs">
               <AlertOctagon className="size-4 text-amber-600 shrink-0 mt-0.5" />
-              <div className="space-y-0.5">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="inline-flex items-center gap-1 rounded-md bg-amber-200/80 dark:bg-amber-900/80 px-2 py-0.5 font-mono text-[10px] font-extrabold text-amber-950 dark:text-amber-100 border border-amber-400/60 dark:border-amber-700/60">
+                    AUDIT LOG: GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED
+                  </span>
+                </div>
                 <span className="font-bold block text-[11px] uppercase tracking-wider text-amber-800 dark:text-amber-300">
                   Trust Adjustment Audited: GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED
                 </span>
-                <p className="font-medium text-[11px]">{transitionMsg}</p>
+                <p className="font-medium text-[11px] leading-relaxed">{transitionMsg}</p>
               </div>
             </div>
           )}
@@ -482,15 +487,22 @@ export function GuardianAutopaySimulator() {
 
               <div className="flex items-baseline justify-between">
                 <span className="text-2xl font-black text-foreground">₹150 Fine</span>
-                <span
-                  className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${
-                    150 <= effectiveCap
-                      ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 border-emerald-300 dark:border-emerald-800'
-                      : 'text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/80 border-rose-300 dark:border-rose-800'
-                  }`}
-                >
-                  ₹150 {150 <= effectiveCap ? '≤' : '>'} {formatCurrency(effectiveCap)}
-                </span>
+                <div className="flex flex-col items-end gap-1">
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded-md border ${
+                      150 <= effectiveCap
+                        ? 'text-emerald-700 dark:text-emerald-400 bg-emerald-100 dark:bg-emerald-950/80 border-emerald-300 dark:border-emerald-800'
+                        : 'text-rose-700 dark:text-rose-400 bg-rose-100 dark:bg-rose-950/80 border-rose-300 dark:border-rose-800'
+                    }`}
+                  >
+                    ₹150 {150 <= effectiveCap ? '≤' : 'vs Effective Cap'} {formatCurrency(effectiveCap)}
+                  </span>
+                  {150 > effectiveCap && (
+                    <span className="text-[10px] font-extrabold uppercase text-rose-700 dark:text-rose-300 bg-rose-200/80 dark:bg-rose-900/60 px-1.5 py-0.5 rounded">
+                      {currentTier} TRUST CAP: {formatCurrency(effectiveCap)}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <p className="text-xs text-muted-foreground font-medium">
