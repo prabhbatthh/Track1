@@ -691,6 +691,29 @@ async def test_autonomous_gateway_adapter_policy_rejection_precedes_gateway():
 
 
 @pytest.mark.asyncio
+async def test_execute_autonomous_autopay_unlinked_guardian_forbidden():
+    """Verify Step 6: Authorization Gate returns HTTP 403 when an unlinked guardian attempts autonomous settlement."""
+    guardian, child, link = await setup_guardian_and_child()
+    other_guardian, _, _ = await setup_guardian_and_child()
+
+    loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=3, fine_paid=False)
+
+    # Attempting autonomous payment for another guardian's child -> HTTP 403
+    with pytest.raises(HTTPException) as exc_info:
+        await execute_autonomous_autopay(loan.id, guardian_id=other_guardian.id)
+
+    assert exc_info.value.status_code == 403
+    assert "not linked to this guardian" in exc_info.value.detail.lower()
+
+    # Zero database mutations
+    loan_db = await prisma.loan.find_unique(where={"id": loan.id})
+    assert loan_db.finePaid is False
+
+    payment_count = await prisma.payment.count(where={"userId": child.id})
+    assert payment_count == 0
+
+
+@pytest.mark.asyncio
 async def test_execute_autonomous_endpoint_all_paths():
     """Verify POST /api/v1/guardian/autopay/execute-autonomous router endpoint across all HTTP response paths."""
     from app.modules.guardian_autopay.router import execute_autonomous_settlement

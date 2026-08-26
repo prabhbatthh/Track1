@@ -472,7 +472,9 @@ class AutonomousGatewayAdapter:
         return capture
 
 
-async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
+async def execute_autonomous_autopay(
+    loan_id: str, guardian_id: Optional[str] = None
+) -> AutopayAutonomousResponse:
     """Execute zero-click server-side autonomous fine settlement for a pre-approved policy.
 
     1. Load loan & associated guardian/child link.
@@ -514,6 +516,12 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Member is not linked to any guardian",
+        )
+
+    if guardian_id is not None and link.guardianId != guardian_id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Member is not linked to this guardian",
         )
 
     # 3. Calculate authoritative fine amount from server DB

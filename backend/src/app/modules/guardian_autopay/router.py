@@ -88,7 +88,7 @@ async def execute_autonomous_settlement(
         )
 
     await guardian_service._find_child_or_403(current_user.id, loan.memberId)
-    return await service.execute_autonomous_autopay(payload.loan_id)
+    return await service.execute_autonomous_autopay(payload.loan_id, guardian_id=current_user.id)
 
 
 @router.get("/demo-loans")
