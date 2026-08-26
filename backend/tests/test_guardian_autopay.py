@@ -403,6 +403,40 @@ async def test_execute_autonomous_autopay_idempotency():
 
 
 @pytest.mark.asyncio
+async def test_execute_autonomous_autopay_concurrent_race_condition():
+    """Verify Step 2: Concurrent simultaneous execution attempts result in exactly 1 successful payment and zero duplicate payments."""
+    import asyncio
+    guardian, child, link = await setup_guardian_and_child()
+
+    # Create 3 days overdue fine (@ ₹50/day = ₹150 fine, within ₹200 cap)
+    loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=3, fine_paid=False)
+
+    # Dispatch 2 simultaneous concurrent requests for the exact same loan
+    results = await asyncio.gather(
+        execute_autonomous_autopay(loan.id),
+        execute_autonomous_autopay(loan.id),
+        return_exceptions=True,
+    )
+
+    successes = [r for r in results if not isinstance(r, Exception)]
+    conflicts = [r for r in results if isinstance(r, HTTPException) and r.status_code == 409]
+
+    # Exactly 1 request succeeds, exactly 1 request gets HTTP 409 Conflict
+    assert len(successes) == 1
+    assert len(conflicts) == 1
+
+    # Database state verification: loan is finePaid=True, exactly 1 Payment record created
+    loan_db = await prisma.loan.find_unique(where={"id": loan.id})
+    assert loan_db.finePaid is True
+
+    payments = await prisma.payment.find_many(
+        where={"userId": child.id, "label": {"contains": "Auto-Pay"}}
+    )
+    assert len(payments) == 1
+    assert payments[0].amount == 150
+
+
+@pytest.mark.asyncio
 async def test_execute_autonomous_autopay_transaction_cap_exceeded_notifies_guardian():
     """Verify autonomous execution exceeding per-transaction cap is blocked with zero mutations and notifies guardian."""
     guardian, child, link = await setup_guardian_and_child()

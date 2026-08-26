@@ -660,16 +660,15 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
 
     # Atomic transaction ensuring loan status and payment record stay in sync
     async with prisma.tx() as tx:
-        tx_loan = await tx.loan.find_unique(where={"id": loan.id})
-        if tx_loan and tx_loan.finePaid:
+        updated_count = await tx.loan.update_many(
+            where={"id": loan.id, "finePaid": False},
+            data={"finePaid": True},
+        )
+        if updated_count == 0:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Fine charge has already been paid",
             )
-        await tx.loan.update(
-            where={"id": loan.id},
-            data={"finePaid": True},
-        )
         payment = await tx.payment.create(
             data={
                 "userId": loan.memberId,
