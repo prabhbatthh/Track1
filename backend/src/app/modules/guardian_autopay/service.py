@@ -149,7 +149,10 @@ async def calculate_monthly_autopay_spend(child_id: str) -> int:
     return sum(p.amount for p in payments)
 
 
-async def evaluate_autopay(request: AutopayEvaluateRequest) -> AutopayDecisionResponse:
+async def evaluate_autopay(
+    request: AutopayEvaluateRequest,
+    override_policy: Optional[AutopayPolicyOut] = None,
+) -> AutopayDecisionResponse:
     """Deterministic policy evaluator for Guardian Auto-Pay.
 
     Verifies 6 strict rules:
@@ -170,7 +173,7 @@ async def evaluate_autopay(request: AutopayEvaluateRequest) -> AutopayDecisionRe
         await _record_eval_audit(request, decision, "UNLINKED_GUARDIAN")
         return decision
 
-    policy = await get_or_create_policy(request.guardian_id, request.child_id)
+    policy = override_policy or await get_or_create_policy(request.guardian_id, request.child_id)
 
     # Check 2: Auto-pay enabled
     if not policy.enabled:
@@ -446,14 +449,16 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
 
     1. Load loan & associated guardian/child link.
     2. Check idempotency: If fine is already paid, raise HTTP 409 Conflict.
-    3. Calculate authoritative fine amount strictly from Loan record in PostgreSQL.
-    4. Re-evaluate policy immediately prior to execution via evaluate_autopay().
-    5. Execute atomic transaction updating loan.finePaid = True and creating Payment record.
-    6. Record audit log and return structured result.
+    3. Calculate child's trust score dynamically and enforce guardian hard ceiling.
+    4. Persist trust snapshot and audit tier changes if tier changed.
+    5. Re-evaluate policy using effective transaction cap.
+    6. Execute atomic transaction updating loan.finePaid = True and creating Payment record.
+    7. Record audit log and return structured result.
     """
     from uuid import uuid4
     from app.modules.loans.constants import FINE_PER_DAY
     from app.modules.guardian_autopay.schemas import AutopayAutonomousResponse
+    from app.modules.guardian_autopay.trust_scoring import calculate_trust_tier
 
     # 1. Load loan record
     loan = await prisma.loan.find_unique(
@@ -483,7 +488,7 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
             detail="Member is not linked to any guardian",
         )
 
-    # 3. Calculate authoritative amount from server DB
+    # 3. Calculate authoritative fine amount from server DB
     now = datetime.now(UTC)
     end = loan.returnedAt or now
     days_late = max(0, (end.date() - loan.dueDate.date()).days)
@@ -495,7 +500,84 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
             detail="No fine amount is currently owed on this loan",
         )
 
-    # 4. Re-evaluate policy strictly before autonomous capture
+    # 4. Trust Ladder calculation & hard ceiling enforcement
+    trust_result = await calculate_trust_tier(loan.memberId)
+
+    base_policy_out = await get_or_create_policy(link.guardianId, loan.memberId)
+    policy_record = await prisma.guardianautopaypolicy.find_unique(
+        where={"guardianLinkId": link.id}
+    )
+
+    guardian_hard_ceiling = policy_record.perTransactionCap
+    theoretical_cap = int(guardian_hard_ceiling * trust_result.multiplier)
+    effective_cap = min(theoretical_cap, guardian_hard_ceiling)
+
+    prev_tier = policy_record.currentTrustTier or "BASELINE"
+    prev_effective_cap = policy_record.effectiveTransactionCap or guardian_hard_ceiling
+    tier_changed = (trust_result.tier != prev_tier)
+
+    child_name = loan.member.fullName if (loan.member and loan.member.fullName) else "your child"
+
+    if tier_changed:
+        if trust_result.tier == "HIGH" and theoretical_cap > guardian_hard_ceiling:
+            reason_msg = (
+                f"Trust tier HIGH ({trust_result.on_time_rate * 100:.0f}%, {trust_result.on_time_returns}/{trust_result.sample_size}), "
+                f"theoretical cap ₹{theoretical_cap}, but guardian hard ceiling ₹{guardian_hard_ceiling} limits effective cap to ₹{effective_cap}."
+            )
+        else:
+            reason_msg = (
+                f"Effective cap adjusted from ₹{prev_effective_cap} to ₹{effective_cap} — "
+                f"child on-time return rate {trust_result.on_time_rate * 100:.0f}% ({trust_result.on_time_returns}/{trust_result.sample_size}), "
+                f"trust tier: {trust_result.tier}"
+            )
+
+        try:
+            await audit_log_service.record(
+                actor_id=link.guardianId,
+                action="GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED",
+                metadata={
+                    "guardian_id": link.guardianId,
+                    "child_id": loan.memberId,
+                    "child_name": child_name,
+                    "loan_id": loan.id,
+                    "previous_trust_tier": prev_tier,
+                    "new_trust_tier": trust_result.tier,
+                    "on_time_return_rate": trust_result.on_time_rate,
+                    "on_time_returns": trust_result.on_time_returns,
+                    "total_returns": trust_result.total_returns,
+                    "sample_size": trust_result.sample_size,
+                    "multiplier": trust_result.multiplier,
+                    "guardian_per_transaction_cap": guardian_hard_ceiling,
+                    "theoretical_cap": theoretical_cap,
+                    "previous_effective_cap": prev_effective_cap,
+                    "new_effective_cap": effective_cap,
+                    "reason": reason_msg,
+                },
+            )
+        except Exception as exc:
+            logger.error("Failed to record GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED audit log: %s", exc)
+
+    # Update policy record snapshot in database
+    await prisma.guardianautopaypolicy.update(
+        where={"id": policy_record.id},
+        data={
+            "currentTrustTier": trust_result.tier,
+            "effectiveTransactionCap": effective_cap,
+            "lastTrustScoreUpdatedAt": now,
+        },
+    )
+
+    # 5. Re-evaluate policy strictly using effective_cap before autonomous capture
+    effective_policy = AutopayPolicyOut(
+        id=base_policy_out.id,
+        guardian_id=base_policy_out.guardian_id,
+        member_id=base_policy_out.member_id,
+        enabled=base_policy_out.enabled,
+        per_transaction_cap=effective_cap,
+        monthly_spending_cap=base_policy_out.monthly_spending_cap,
+        allowed_charge_types=base_policy_out.allowed_charge_types,
+    )
+
     eval_req = AutopayEvaluateRequest(
         guardian_id=link.guardianId,
         child_id=loan.memberId,
@@ -503,7 +585,8 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
         amount=authoritative_amount,
         charge_id=loan.id,
     )
-    decision = await evaluate_autopay(eval_req)
+    decision = await evaluate_autopay(eval_req, override_policy=effective_policy)
+
     if not decision.allowed:
         child_name = loan.member.fullName if (loan.member and loan.member.fullName) else "your child"
         reason_lower = decision.reason.lower()
