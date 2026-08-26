@@ -88,5 +88,27 @@ class AutopayDemoLoansResponse(BaseModel):
     monthly_spending_cap: int = Field(1000, description="Guardian's monthly limit")
 
 
+class AutopayTrustStatusResponse(BaseModel):
+    child_id: str = Field(..., description="UUID of child member account")
+    child_name: str = Field(..., description="Full name of child member")
+    trust_tier: str = Field(..., description="Current trust tier: HIGH, BASELINE, or LOW")
+    on_time_return_rate: float = Field(..., description="Percentage of on-time returns (0.0 to 100.0)")
+    on_time_returns: int = Field(..., description="Number of on-time returns in sample window")
+    total_returns: int = Field(..., description="Total returns in sample window")
+    sample_size: int = Field(..., description="Sample size of evaluated returned loans")
+    multiplier: float = Field(..., description="Tier multiplier (1.2, 1.0, or 0.7)")
+    guardian_per_transaction_cap: int = Field(..., description="Guardian's configured per-transaction cap in INR")
+    theoretical_cap: int = Field(..., description="Theoretical cap (guardian cap * multiplier)")
+    effective_transaction_cap: int = Field(..., description="Effective transaction cap (bounded by hard ceiling)")
+    last_updated_at: Optional[str] = Field(None, description="ISO timestamp of last trust score update")
+    reasoning: str = Field(..., description="Explainable rationale for the effective cap")
+
+
+class AutopaySimulateTrustRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    action: str = Field("simulate_late_return", description="Demo action: 'simulate_late_return' or 'restore'")
+
+
+
 
 

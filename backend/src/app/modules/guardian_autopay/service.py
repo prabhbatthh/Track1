@@ -798,4 +798,161 @@ async def get_or_create_demo_loans(guardian_id: str):
     )
 
 
+async def get_trust_status(guardian_id: str):
+    """Retrieve current deterministic trust status and effective cap for the linked child."""
+    from app.modules.guardian_autopay.schemas import AutopayTrustStatusResponse
+    from app.modules.guardian_autopay.trust_scoring import calculate_trust_tier
+
+    link = await prisma.guardianlink.find_first(
+        where={"guardianId": guardian_id},
+        include={"member": True},
+    )
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked child account found for this guardian",
+        )
+
+    child_id = link.memberId
+    child_name = link.member.fullName if (link.member and link.member.fullName) else "Child Member"
+    policy_out = await get_or_create_policy(guardian_id, child_id)
+    policy_record = await prisma.guardianautopaypolicy.find_unique(
+        where={"guardianLinkId": link.id}
+    )
+
+    trust_result = await calculate_trust_tier(child_id)
+    guardian_hard_ceiling = policy_record.perTransactionCap
+    theoretical_cap = int(guardian_hard_ceiling * trust_result.multiplier)
+    effective_cap = min(theoretical_cap, guardian_hard_ceiling)
+    rate_pct = round(trust_result.on_time_rate * 100, 1)
+
+    if trust_result.sample_size == 0:
+        reasoning = (
+            f"No returned book history yet. Trust tier: BASELINE. Multiplier: 1.0x. "
+            f"Effective cap remains ₹{guardian_hard_ceiling}."
+        )
+    elif trust_result.tier == "HIGH":
+        reasoning = (
+            f"{trust_result.on_time_returns} of the last {trust_result.sample_size} returned books were on time ({rate_pct:.0f}%). "
+            f"Trust tier: HIGH. Multiplier: 1.2x. Theoretical cap: ₹{theoretical_cap}. "
+            f"Guardian hard ceiling limits autonomous payments to ₹{guardian_hard_ceiling}."
+        )
+    elif trust_result.tier == "BASELINE":
+        reasoning = (
+            f"{trust_result.on_time_returns} of the last {trust_result.sample_size} returned books were on time ({rate_pct:.0f}%). "
+            f"Trust tier: BASELINE. Multiplier: 1.0x. Effective cap remains ₹{guardian_hard_ceiling}."
+        )
+    else:  # LOW
+        reasoning = (
+            f"{trust_result.on_time_returns} of the last {trust_result.sample_size} returned books were on time ({rate_pct:.0f}%). "
+            f"Trust tier: LOW. Multiplier: 0.7x. Effective cap reduced to ₹{effective_cap}."
+        )
+
+    last_updated = (
+        policy_record.lastTrustScoreUpdatedAt.isoformat()
+        if policy_record.lastTrustScoreUpdatedAt
+        else None
+    )
+
+    return AutopayTrustStatusResponse(
+        child_id=child_id,
+        child_name=child_name,
+        trust_tier=trust_result.tier,
+        on_time_return_rate=rate_pct,
+        on_time_returns=trust_result.on_time_returns,
+        total_returns=trust_result.total_returns,
+        sample_size=trust_result.sample_size,
+        multiplier=trust_result.multiplier,
+        guardian_per_transaction_cap=guardian_hard_ceiling,
+        theoretical_cap=theoretical_cap,
+        effective_transaction_cap=effective_cap,
+        last_updated_at=last_updated,
+        reasoning=reasoning,
+    )
+
+
+async def simulate_trust_history(guardian_id: str, action: str):
+    """Demo-only endpoint to simulate a trust history change (e.g. late returns) live for hackathon judging."""
+    from datetime import timedelta
+    from app.modules.guardian_autopay.trust_scoring import calculate_trust_tier
+
+    link = await prisma.guardianlink.find_first(
+        where={"guardianId": guardian_id},
+        include={"member": True},
+    )
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked child account found for this guardian",
+        )
+
+    child_id = link.memberId
+    book = await prisma.book.find_first()
+    if not book:
+        book = await prisma.book.create(
+            data={"title": "Demo Return Book", "author": "Author", "category": "Fiction"}
+        )
+
+    now = datetime.now(UTC)
+
+    if action == "simulate_late_return":
+        # Create 10 late returned loans -> 0% rate -> LOW trust (multiplier 0.7)
+        for i in range(10):
+            due = now - timedelta(days=40 - i)
+            returned = due + timedelta(days=5)  # 5 days late
+            await prisma.loan.create(
+                data={
+                    "memberId": child_id,
+                    "bookId": book.id,
+                    "createdById": guardian_id,
+                    "dueDate": due,
+                    "returnedAt": returned,
+                    "finePaid": True,
+                }
+            )
+    elif action == "restore":
+        # Delete demo returned loans or add 15 on-time returned loans -> 100% -> HIGH/BASELINE
+        await prisma.loan.delete_many(
+            where={"memberId": child_id, "returnedAt": {"not": None}}
+        )
+
+    # Recalculate trust & update policy snapshot
+    trust_res = await calculate_trust_tier(child_id)
+    policy_rec = await prisma.guardianautopaypolicy.find_unique(where={"guardianLinkId": link.id})
+    prev_tier = policy_rec.currentTrustTier or "BASELINE"
+    prev_eff = policy_rec.effectiveTransactionCap or policy_rec.perTransactionCap
+    new_eff = min(int(policy_rec.perTransactionCap * trust_res.multiplier), policy_rec.perTransactionCap)
+
+    await prisma.guardianautopaypolicy.update(
+        where={"guardianLinkId": link.id},
+        data={
+            "currentTrustTier": trust_res.tier,
+            "effectiveTransactionCap": new_eff,
+            "lastTrustScoreUpdatedAt": now,
+        },
+    )
+
+    if prev_tier != trust_res.tier or prev_eff != new_eff:
+        from app.modules.audit_log import service as audit_service
+        await audit_service.log_action(
+            actor_id=guardian_id,
+            action="GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED",
+            target_id=child_id,
+            details=f"Demo simulation ({action}) adjusted trust tier to {trust_res.tier}",
+            metadata={
+                "previous_trust_tier": prev_tier,
+                "new_trust_tier": trust_res.tier,
+                "previous_effective_cap": prev_eff,
+                "new_effective_cap": new_eff,
+                "on_time_return_rate": trust_res.on_time_rate,
+                "multiplier": trust_res.multiplier,
+                "guardian_per_transaction_cap": policy_rec.perTransactionCap,
+                "reason": f"Simulated demo adjustment ({action})",
+            },
+        )
+
+    return await get_trust_status(guardian_id)
+
+
+
 

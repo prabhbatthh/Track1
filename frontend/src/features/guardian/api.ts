@@ -82,3 +82,35 @@ export async function getAutopayDemoLoans(token?: string): Promise<AutopayDemoLo
   return apiGet<AutopayDemoLoansResponse>('/guardian/autopay/demo-loans', token);
 }
 
+export interface AutopayTrustStatus {
+  child_id: string;
+  child_name: string;
+  trust_tier: 'HIGH' | 'BASELINE' | 'LOW';
+  on_time_return_rate: number;
+  on_time_returns: number;
+  total_returns: number;
+  sample_size: number;
+  multiplier: number;
+  guardian_per_transaction_cap: number;
+  theoretical_cap: number;
+  effective_transaction_cap: number;
+  last_updated_at?: string;
+  reasoning: string;
+}
+
+export async function getAutopayTrustStatus(token?: string): Promise<AutopayTrustStatus> {
+  return apiGet<AutopayTrustStatus>('/guardian/autopay/trust-status', token);
+}
+
+export async function simulateAutopayTrustHistory(
+  action: 'simulate_late_return' | 'restore',
+  token?: string
+): Promise<AutopayTrustStatus> {
+  return apiPost<AutopayTrustStatus>(
+    '/guardian/autopay/simulate-trust-history',
+    { action },
+    token
+  );
+}
+
+

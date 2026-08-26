@@ -13,6 +13,8 @@ from app.modules.guardian_autopay.schemas import (
     AutopayExecuteAutonomousRequest,
     AutopayPolicyOut,
     AutopayPolicyUpdate,
+    AutopaySimulateTrustRequest,
+    AutopayTrustStatusResponse,
 )
 
 router = APIRouter(prefix="/guardian/autopay", tags=["Guardian Auto-Pay"])
@@ -65,12 +67,7 @@ async def approve_and_create_order(
     payload: AutopayApproveRequest,
     current_user: User = Depends(_require_guardian_user),
 ):
-    """Explicit Guardian Approval Consent Gate: Re-evaluates policy and creates bounded Razorpay order.
-
-    Requires guardian authentication & verified GuardianLink relationship.
-    Authoritative amount is derived strictly from PostgreSQL Loan record.
-    Extra client-supplied financial fields are forbidden by Pydantic schema validation.
-    """
+    """Explicit Guardian Approval Consent Gate: Re-evaluates policy and creates bounded Razorpay order."""
     return await service.approve_and_create_autopay_order(current_user.id, payload)
 
 
@@ -79,13 +76,7 @@ async def execute_autonomous_settlement(
     payload: AutopayExecuteAutonomousRequest,
     current_user: User = Depends(_require_guardian_user),
 ):
-    """Zero-click Autonomous Payment Execution Endpoint.
-
-    Requires guardian authentication & verified GuardianLink relationship.
-    Authoritative amount is derived strictly from PostgreSQL Loan record.
-    Extra client-supplied financial fields are forbidden by Pydantic schema validation.
-    Does NOT invoke Razorpay Checkout or frontend dialogs.
-    """
+    """Zero-click Autonomous Payment Execution Endpoint."""
     from app.db.prisma import prisma
     from app.modules.guardian import service as guardian_service
 
@@ -96,9 +87,7 @@ async def execute_autonomous_settlement(
             detail="Loan record not found",
         )
 
-    # Authorization: verify calling guardian is linked to child owning the loan
     await guardian_service._find_child_or_403(current_user.id, loan.memberId)
-
     return await service.execute_autonomous_autopay(payload.loan_id)
 
 
@@ -108,5 +97,24 @@ async def get_demo_loans(
 ):
     """Retrieve or initialize deterministic demo loans for Guardian Auto-Pay simulator."""
     return await service.get_or_create_demo_loans(current_user.id)
+
+
+@router.get("/trust-status", response_model=AutopayTrustStatusResponse)
+async def get_trust_status(
+    current_user: User = Depends(_require_guardian_user),
+):
+    """Retrieve current deterministic trust status and effective cap for guardian's linked child."""
+    return await service.get_trust_status(current_user.id)
+
+
+@router.post("/simulate-trust-history", response_model=AutopayTrustStatusResponse)
+async def simulate_trust_history(
+    payload: AutopaySimulateTrustRequest,
+    current_user: User = Depends(_require_guardian_user),
+):
+    """Demo-only endpoint for live hackathon simulation of trust tier changes (e.g. late returns)."""
+    return await service.simulate_trust_history(current_user.id, payload.action)
+
+
 
 
