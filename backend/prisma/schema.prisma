@@ -118,15 +118,18 @@ model GuardianLink {
 }
 
 model GuardianAutopayPolicy {
-  id                 String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  guardianLinkId     String   @unique @map("guardian_link_id") @db.Uuid
-  guardianLink       GuardianLink @relation(fields: [guardianLinkId], references: [id], onDelete: Cascade)
-  enabled            Boolean  @default(true)
-  perTransactionCap  Int      @default(200) @map("per_transaction_cap")
-  monthlySpendingCap Int      @default(1000) @map("monthly_spending_cap")
-  allowedChargeTypes String[] @default(["fine"]) @map("allowed_charge_types")
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @default(now()) @updatedAt @map("updated_at")
+  id                      String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  guardianLinkId          String    @unique @map("guardian_link_id") @db.Uuid
+  guardianLink            GuardianLink @relation(fields: [guardianLinkId], references: [id], onDelete: Cascade)
+  enabled                 Boolean   @default(true)
+  perTransactionCap       Int       @default(200) @map("per_transaction_cap")
+  monthlySpendingCap      Int       @default(1000) @map("monthly_spending_cap")
+  allowedChargeTypes      String[]  @default(["fine"]) @map("allowed_charge_types")
+  currentTrustTier        String    @default("BASELINE") @map("current_trust_tier") @db.VarChar(30)
+  effectiveTransactionCap Int       @default(200) @map("effective_transaction_cap")
+  lastTrustScoreUpdatedAt DateTime? @map("last_trust_score_updated_at")
+  createdAt               DateTime  @default(now()) @map("created_at")
+  updatedAt               DateTime  @default(now()) @updatedAt @map("updated_at")
 
   @@map("guardian_autopay_policies")
 }
