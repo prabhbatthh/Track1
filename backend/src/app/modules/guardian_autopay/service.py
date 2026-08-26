@@ -933,23 +933,26 @@ async def simulate_trust_history(guardian_id: str, action: str):
     )
 
     if prev_tier != trust_res.tier or prev_eff != new_eff:
-        from app.modules.audit_log import service as audit_service
-        await audit_service.log_action(
-            actor_id=guardian_id,
-            action="GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED",
-            target_id=child_id,
-            details=f"Demo simulation ({action}) adjusted trust tier to {trust_res.tier}",
-            metadata={
-                "previous_trust_tier": prev_tier,
-                "new_trust_tier": trust_res.tier,
-                "previous_effective_cap": prev_eff,
-                "new_effective_cap": new_eff,
-                "on_time_return_rate": trust_res.on_time_rate,
-                "multiplier": trust_res.multiplier,
-                "guardian_per_transaction_cap": policy_rec.perTransactionCap,
-                "reason": f"Simulated demo adjustment ({action})",
-            },
-        )
+        from app.modules.audit_log import service as audit_log_service
+        try:
+            await audit_log_service.record(
+                actor_id=guardian_id,
+                action="GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED",
+                metadata={
+                    "guardian_id": guardian_id,
+                    "child_id": child_id,
+                    "previous_trust_tier": prev_tier,
+                    "new_trust_tier": trust_res.tier,
+                    "previous_effective_cap": prev_eff,
+                    "new_effective_cap": new_eff,
+                    "on_time_return_rate": trust_res.on_time_rate,
+                    "multiplier": trust_res.multiplier,
+                    "guardian_per_transaction_cap": policy_rec.perTransactionCap,
+                    "reason": f"Simulated demo adjustment ({action})",
+                },
+            )
+        except Exception as exc:
+            logger.error("Failed to record GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED audit log: %s", exc)
 
     return await get_trust_status(guardian_id)
 

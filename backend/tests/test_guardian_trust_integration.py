@@ -454,3 +454,29 @@ async def test_trust_recalculation_on_new_returns():
     # Trust tier dynamically updated to HIGH!
     assert pol2.currentTrustTier == "HIGH"
     assert pol2.effectiveTransactionCap == 200
+
+
+@pytest.mark.asyncio
+async def test_simulate_trust_history_late_return_and_restore():
+    """Verify simulate_trust_history endpoints for late return downgrade and baseline restore."""
+    from app.modules.guardian_autopay.service import simulate_trust_history
+
+    guardian, child, link = await setup_guardian_and_child()
+
+    # 1. Downgrade to LOW
+    res_late = await simulate_trust_history(guardian.id, "simulate_late_return")
+    assert res_late.trust_tier == "LOW"
+    assert res_late.effective_transaction_cap == 140
+
+    pol_low = await prisma.guardianautopaypolicy.find_unique(where={"guardianLinkId": link.id})
+    assert pol_low.currentTrustTier == "LOW"
+    assert pol_low.effectiveTransactionCap == 140
+
+    # 2. Restore to BASELINE
+    res_restore = await simulate_trust_history(guardian.id, "restore")
+    assert res_restore.trust_tier in ["BASELINE", "HIGH"]
+    assert res_restore.effective_transaction_cap == 200
+
+    pol_restored = await prisma.guardianautopaypolicy.find_unique(where={"guardianLinkId": link.id})
+    assert pol_restored.currentTrustTier in ["BASELINE", "HIGH"]
+    assert pol_restored.effectiveTransactionCap == 200
