@@ -519,6 +519,75 @@ async def test_execute_autonomous_autopay_monthly_cap_exceeded_notifies_guardian
 
 
 @pytest.mark.asyncio
+async def test_execute_autonomous_autopay_exact_cap_boundary():
+    """Verify Step 3: Exact cap boundary fine == effective_cap (₹200) is ALLOWED, fine > effective_cap (₹250) is BLOCKED."""
+    guardian, child, link = await setup_guardian_and_child()
+
+    # 4 days overdue @ ₹50/day = ₹200 fine (EXACTLY EQUAL to ₹200 per-transaction cap) -> ALLOWED
+    exact_loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=4, fine_paid=False)
+    res_exact = await execute_autonomous_autopay(exact_loan.id)
+    assert res_exact.success is True
+    assert res_exact.amount == 200
+
+    exact_loan_db = await prisma.loan.find_unique(where={"id": exact_loan.id})
+    assert exact_loan_db.finePaid is True
+
+    # 5 days overdue @ ₹50/day = ₹250 fine (GREATER THAN ₹200 per-transaction cap) -> BLOCKED
+    over_loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=5, fine_paid=False)
+    with pytest.raises(HTTPException) as exc_info:
+        await execute_autonomous_autopay(over_loan.id)
+
+    assert exc_info.value.status_code == 422
+    assert "exceeds per-transaction cap" in exc_info.value.detail.lower()
+
+    over_loan_db = await prisma.loan.find_unique(where={"id": over_loan.id})
+    assert over_loan_db.finePaid is False
+
+
+@pytest.mark.asyncio
+async def test_execute_autonomous_autopay_zero_mutation_on_blocked_charge():
+    """Verify Step 3: Blocked charge produces ZERO financial database mutations (finePaid unchanged, 0 payments created)."""
+    guardian, child, link = await setup_guardian_and_child()
+
+    loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=6, fine_paid=False)
+
+    pre_loan = await prisma.loan.find_unique(where={"id": loan.id})
+    pre_payment_count = await prisma.payment.count(where={"userId": child.id})
+
+    with patch("app.modules.guardian_autopay.service._simulate_gateway_capture") as mock_gateway:
+        with pytest.raises(HTTPException) as exc_info:
+            await execute_autonomous_autopay(loan.id)
+
+        assert exc_info.value.status_code == 422
+        # Simulated gateway capture must NOT have been called
+        mock_gateway.assert_not_called()
+
+    post_loan = await prisma.loan.find_unique(where={"id": loan.id})
+    post_payment_count = await prisma.payment.count(where={"userId": child.id})
+
+    assert post_loan.finePaid == pre_loan.finePaid == False
+    assert post_payment_count == pre_payment_count
+
+
+@pytest.mark.asyncio
+async def test_execute_autonomous_autopay_blocks_even_if_notification_fails():
+    """Verify Step 3: Notification delivery error does NOT authorize payment or crash safety blocking."""
+    guardian, child, link = await setup_guardian_and_child()
+
+    loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=5, fine_paid=False)
+
+    with patch("app.modules.notifications.service.create_notification", side_effect=RuntimeError("Notification network error")):
+        with pytest.raises(HTTPException) as exc_info:
+            await execute_autonomous_autopay(loan.id)
+
+        assert exc_info.value.status_code == 422
+        assert "exceeds per-transaction cap" in exc_info.value.detail.lower()
+
+    loan_db = await prisma.loan.find_unique(where={"id": loan.id})
+    assert loan_db.finePaid is False
+
+
+@pytest.mark.asyncio
 async def test_execute_autonomous_autopay_gateway_failure_rollback_and_retry():
     """Verify forced gateway capture failure rolls back DB state, records 0 payments/audits, and allows clean retry."""
     guardian, child, link = await setup_guardian_and_child()
