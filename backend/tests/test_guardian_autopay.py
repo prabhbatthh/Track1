@@ -650,6 +650,47 @@ async def test_execute_autonomous_autopay_gateway_failure_rollback_and_retry():
 
 
 @pytest.mark.asyncio
+async def test_autonomous_gateway_adapter_prevents_live_keys_and_secret_exposure():
+    """Verify Step 5: Gateway adapter blocks live Razorpay keys (rzp_live_) and never exposes secret keys in response schemas."""
+    from app.modules.guardian_autopay.service import AutonomousGatewayAdapter
+    from app.modules.guardian_autopay.schemas import AutopayAutonomousResponse
+
+    guardian, child, link = await setup_guardian_and_child()
+    loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=3, fine_paid=False)
+
+    # 1. Live-mode key safety block
+    with patch("app.modules.guardian_autopay.service.get_settings") as mock_settings:
+        mock_settings.return_value.razorpay_key_id = "rzp_live_12345678901234"
+        mock_settings.return_value.razorpay_key_secret = "secret_live_123"
+
+        with pytest.raises(HTTPException) as exc_info:
+            await execute_autonomous_autopay(loan.id)
+
+        assert exc_info.value.status_code == 500
+        assert "Live Razorpay credentials cannot be used" in exc_info.value.detail
+
+    # 2. Schema secret key non-exposure check
+    res = await execute_autonomous_autopay(loan.id)
+    response_dict = res.model_dump()
+    assert "razorpay_key_secret" not in response_dict
+    assert "secret" not in str(response_dict).lower()
+
+
+@pytest.mark.asyncio
+async def test_autonomous_gateway_adapter_policy_rejection_precedes_gateway():
+    """Verify Step 5: Policy evaluation occurs BEFORE gateway capture attempt, preventing over-cap charges from reaching gateway."""
+    guardian, child, link = await setup_guardian_and_child()
+    over_loan = await create_test_loan_with_fine(child.id, guardian.id, days_overdue=5, fine_paid=False)
+
+    with patch("app.modules.guardian_autopay.service.AutonomousGatewayAdapter.capture_autonomous_payment") as mock_capture:
+        with pytest.raises(HTTPException) as exc_info:
+            await execute_autonomous_autopay(over_loan.id)
+
+        assert exc_info.value.status_code == 422
+        mock_capture.assert_not_called()
+
+
+@pytest.mark.asyncio
 async def test_execute_autonomous_endpoint_all_paths():
     """Verify POST /api/v1/guardian/autopay/execute-autonomous router endpoint across all HTTP response paths."""
     from app.modules.guardian_autopay.router import execute_autonomous_settlement

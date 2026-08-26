@@ -4,6 +4,7 @@ from typing import Optional, Tuple
 
 from fastapi import HTTPException, status
 
+from app.core.config import get_settings
 from app.db.prisma import prisma
 from app.modules.audit_log import service as audit_log_service
 from app.modules.guardian import service as guardian_service
@@ -444,6 +445,33 @@ async def _simulate_gateway_capture(loan_id: str, amount: int) -> dict:
     }
 
 
+class AutonomousGatewayAdapter:
+    """Gateway abstraction for autonomous payment capture.
+
+    Routes zero-click autonomous fine settlements through server-side gateway adapters while
+    enforcing security rules:
+    - Never exposes secret keys or live-mode credentials.
+    - Prevents live Razorpay credentials (rzp_live_) from being used for autonomous demo execution.
+    - Returns structured gateway capture metadata (payment_id, order_id, settlement_type).
+    """
+
+    @staticmethod
+    async def capture_autonomous_payment(loan_id: str, amount: int) -> dict[str, str]:
+        settings = get_settings()
+
+        # Security check: Live mode credentials must NEVER be used for autonomous demo execution
+        if settings.razorpay_key_id and settings.razorpay_key_id.startswith("rzp_live_"):
+            logger.critical("SECURITY VIOLATION: Live Razorpay key detected for autonomous execution attempt.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Live Razorpay credentials cannot be used for autonomous execution",
+            )
+
+        capture = await _simulate_gateway_capture(loan_id, amount)
+        capture["settlement_type"] = "autonomous_simulated"
+        return capture
+
+
 async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
     """Execute zero-click server-side autonomous fine settlement for a pre-approved policy.
 
@@ -650,11 +678,12 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
             detail=f"Auto-Pay policy evaluation rejected: {decision.reason}",
         )
 
-    # 5. Perform server-side simulated autonomous payment capture
+    # 5. Perform server-side autonomous payment capture via Gateway Abstraction
     try:
-        capture = await _simulate_gateway_capture(loan.id, authoritative_amount)
+        capture = await AutonomousGatewayAdapter.capture_autonomous_payment(loan.id, authoritative_amount)
         simulated_payment_id = capture["payment_id"]
         simulated_order_id = capture["order_id"]
+        settlement_type = capture.get("settlement_type", "autonomous_simulated")
     except HTTPException:
         raise
     except Exception as exc:
@@ -727,7 +756,7 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
                 "per_transaction_cap": decision.transaction_cap,
                 "monthly_spending_cap": decision.monthly_cap,
                 "monthly_spent": decision.monthly_spent,
-                "settlement_type": "autonomous_simulated",
+                "settlement_type": settlement_type,
             },
         )
     except Exception as exc:
