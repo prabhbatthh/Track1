@@ -22,6 +22,8 @@ import { ErrorState } from '@/components/feedback';
 import { Button, Input } from '@/components/ui';
 import { formatCurrency } from '@/lib/format';
 
+import { ExternalAIShoppingAgentSimulator } from '@/features/agent-shopping/components/ExternalAIShoppingAgentSimulator';
+
 import { fetchAgentCatalog } from '../api';
 import type { AgentCatalogBook, AgentCatalogResponse } from '../types';
 
@@ -29,7 +31,7 @@ export function AgentCatalogPage() {
   const [data, setData] = useState<AgentCatalogResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'visual' | 'json'>('visual');
+  const [activeTab, setActiveTab] = useState<'visual' | 'json' | 'simulator'>('visual');
   const [copied, setCopied] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [stockFilter, setStockFilter] = useState<'all' | 'in_stock' | 'out_of_stock'>('all');
@@ -155,15 +157,35 @@ export function AgentCatalogPage() {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <Button
-              variant="primary"
+              variant={activeTab === 'visual' ? 'primary' : 'outline'}
               size="md"
-              onClick={() => setActiveTab(activeTab === 'json' ? 'visual' : 'json')}
+              onClick={() => setActiveTab('visual')}
               className="gap-2 shadow-sm font-medium"
             >
-              {activeTab === 'json' ? <Sparkles className="size-4" /> : <Code2 className="size-4" />}
-              {activeTab === 'json' ? 'Visual Preview' : 'View Machine-Readable Catalog →'}
+              <Sparkles className="size-4" />
+              <span>Visual Catalog</span>
+            </Button>
+
+            <Button
+              variant={activeTab === 'json' ? 'primary' : 'outline'}
+              size="md"
+              onClick={() => setActiveTab('json')}
+              className="gap-2 shadow-sm font-medium"
+            >
+              <Code2 className="size-4" />
+              <span>Live JSON</span>
+            </Button>
+
+            <Button
+              variant={activeTab === 'simulator' ? 'primary' : 'outline'}
+              size="md"
+              onClick={() => setActiveTab('simulator')}
+              className="gap-2 shadow-sm font-extrabold bg-gradient-to-r from-purple-700 to-indigo-800 text-white hover:from-purple-800 hover:to-indigo-900"
+            >
+              <Bot className="size-4 text-purple-200 animate-pulse" />
+              <span>🤖 AI Agent Demo</span>
             </Button>
 
             <Button
@@ -227,8 +249,10 @@ export function AgentCatalogPage() {
         </div>
       </div>
 
-      {/* ── 3. Main View Toggle (Visual Preview vs Raw JSON) ─────── */}
-      {activeTab === 'json' ? (
+      {/* ── 3. Main View Toggle (Visual Preview vs Raw JSON vs Simulator) ─────── */}
+      {activeTab === 'simulator' ? (
+        <ExternalAIShoppingAgentSimulator />
+      ) : activeTab === 'json' ? (
         <div className="rounded-xl border border-border bg-surface p-5 space-y-4 shadow-sm">
           <div className="flex flex-row items-center justify-between border-b border-border pb-3">
             <div>

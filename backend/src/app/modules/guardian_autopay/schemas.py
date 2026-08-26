@@ -58,3 +58,35 @@ class AutopayApproveResponse(BaseModel):
     charge_id: str = Field(..., description="UUID of charge/loan record")
     label: str = Field(..., description="Display label for fine settlement")
 
+
+class AutopayAutonomousResponse(BaseModel):
+    success: bool = Field(True, description="Autonomous settlement success status")
+    payment_id: str = Field(..., description="UUID of created Payment record")
+    razorpay_payment_id: str = Field(..., description="Simulated gateway payment ID")
+    razorpay_order_id: str = Field(..., description="Simulated gateway order ID")
+    amount: int = Field(..., description="Settled fine amount in INR")
+    loan_id: str = Field(..., description="UUID of settled loan record")
+    member_id: str = Field(..., description="UUID of child account")
+    guardian_id: str = Field(..., description="UUID of guardian account")
+    label: str = Field(..., description="Payment display label")
+
+
+class AutopayExecuteAutonomousRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    loan_id: str = Field(..., description="UUID of the unpaid loan/fine charge to autonomously settle")
+
+
+class AutopayDemoLoansResponse(BaseModel):
+    within_cap_loan_id: str = Field(..., description="UUID of loan with ₹150 fine (within cap)")
+    within_cap_amount: int = Field(150, description="Amount of fine within cap (₹150)")
+    over_cap_loan_id: str = Field(..., description="UUID of loan with ₹250 fine (over cap)")
+    over_cap_amount: int = Field(250, description="Amount of fine over cap (₹250)")
+    child_id: str = Field(..., description="UUID of child member account")
+    child_name: str = Field(..., description="Full name of child member")
+    per_transaction_cap: int = Field(200, description="Guardian's per-transaction limit")
+    monthly_spending_cap: int = Field(1000, description="Guardian's monthly limit")
+
+
+
+

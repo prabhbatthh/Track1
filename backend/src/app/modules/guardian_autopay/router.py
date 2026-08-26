@@ -7,8 +7,10 @@ from app.modules.guardian_autopay import service
 from app.modules.guardian_autopay.schemas import (
     AutopayApproveRequest,
     AutopayApproveResponse,
+    AutopayAutonomousResponse,
     AutopayDecisionResponse,
     AutopayEvaluateRequest,
+    AutopayExecuteAutonomousRequest,
     AutopayPolicyOut,
     AutopayPolicyUpdate,
 )
@@ -70,3 +72,41 @@ async def approve_and_create_order(
     Extra client-supplied financial fields are forbidden by Pydantic schema validation.
     """
     return await service.approve_and_create_autopay_order(current_user.id, payload)
+
+
+@router.post("/execute-autonomous", response_model=AutopayAutonomousResponse)
+async def execute_autonomous_settlement(
+    payload: AutopayExecuteAutonomousRequest,
+    current_user: User = Depends(_require_guardian_user),
+):
+    """Zero-click Autonomous Payment Execution Endpoint.
+
+    Requires guardian authentication & verified GuardianLink relationship.
+    Authoritative amount is derived strictly from PostgreSQL Loan record.
+    Extra client-supplied financial fields are forbidden by Pydantic schema validation.
+    Does NOT invoke Razorpay Checkout or frontend dialogs.
+    """
+    from app.db.prisma import prisma
+    from app.modules.guardian import service as guardian_service
+
+    loan = await prisma.loan.find_unique(where={"id": payload.loan_id})
+    if loan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Loan record not found",
+        )
+
+    # Authorization: verify calling guardian is linked to child owning the loan
+    await guardian_service._find_child_or_403(current_user.id, loan.memberId)
+
+    return await service.execute_autonomous_autopay(payload.loan_id)
+
+
+@router.get("/demo-loans")
+async def get_demo_loans(
+    current_user: User = Depends(_require_guardian_user),
+):
+    """Retrieve or initialize deterministic demo loans for Guardian Auto-Pay simulator."""
+    return await service.get_or_create_demo_loans(current_user.id)
+
+

@@ -10,6 +10,7 @@ from app.modules.guardian import service as guardian_service
 from app.modules.guardian_autopay.schemas import (
     AutopayApproveRequest,
     AutopayApproveResponse,
+    AutopayAutonomousResponse,
     AutopayDecisionResponse,
     AutopayEvaluateRequest,
     AutopayPolicyCreate,
@@ -425,4 +426,293 @@ async def approve_and_create_autopay_order(
         charge_id=payload.charge_id,
         label=label,
     )
+
+
+async def _simulate_gateway_capture(loan_id: str, amount: int) -> dict:
+    """Internal helper performing server-side gateway payment capture.
+
+    Can be mocked/patched in tests (e.g. patch("app.modules.guardian_autopay.service._simulate_gateway_capture"))
+    to simulate payment gateway processing failures.
+    """
+    from uuid import uuid4
+    return {
+        "payment_id": f"pay_auto_{uuid4().hex[:16]}",
+        "order_id": f"order_auto_{uuid4().hex[:16]}",
+    }
+
+
+async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
+    """Execute zero-click server-side autonomous fine settlement for a pre-approved policy.
+
+    1. Load loan & associated guardian/child link.
+    2. Check idempotency: If fine is already paid, raise HTTP 409 Conflict.
+    3. Calculate authoritative fine amount strictly from Loan record in PostgreSQL.
+    4. Re-evaluate policy immediately prior to execution via evaluate_autopay().
+    5. Execute atomic transaction updating loan.finePaid = True and creating Payment record.
+    6. Record audit log and return structured result.
+    """
+    from uuid import uuid4
+    from app.modules.loans.constants import FINE_PER_DAY
+    from app.modules.guardian_autopay.schemas import AutopayAutonomousResponse
+
+    # 1. Load loan record
+    loan = await prisma.loan.find_unique(
+        where={"id": loan_id},
+        include={"book": True, "member": True},
+    )
+    if loan is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Loan record not found",
+        )
+
+    # 2. Idempotency check: Already settled loans return HTTP 409 Conflict
+    if loan.finePaid:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Fine charge has already been paid",
+        )
+
+    # Find guardian linked to child
+    link = await prisma.guardianlink.find_first(
+        where={"memberId": loan.memberId}
+    )
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Member is not linked to any guardian",
+        )
+
+    # 3. Calculate authoritative amount from server DB
+    now = datetime.now(UTC)
+    end = loan.returnedAt or now
+    days_late = max(0, (end.date() - loan.dueDate.date()).days)
+    authoritative_amount = days_late * FINE_PER_DAY
+
+    if authoritative_amount <= 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No fine amount is currently owed on this loan",
+        )
+
+    # 4. Re-evaluate policy strictly before autonomous capture
+    eval_req = AutopayEvaluateRequest(
+        guardian_id=link.guardianId,
+        child_id=loan.memberId,
+        charge_type="fine",
+        amount=authoritative_amount,
+        charge_id=loan.id,
+    )
+    decision = await evaluate_autopay(eval_req)
+    if not decision.allowed:
+        child_name = loan.member.fullName if (loan.member and loan.member.fullName) else "your child"
+        reason_lower = decision.reason.lower()
+        is_overcap = ("per-transaction cap" in reason_lower) or ("monthly spending cap" in reason_lower)
+
+        if "per-transaction cap" in reason_lower:
+            cap_val = decision.transaction_cap or 200
+            notif_msg = f"Auto-Pay blocked: ₹{authoritative_amount:,} fine for {child_name} exceeds your ₹{cap_val:,} per-transaction limit."
+            reason_code = "TRANSACTION_CAP_EXCEEDED"
+        elif "monthly spending cap" in reason_lower:
+            cap_val = decision.monthly_cap or 1000
+            notif_msg = f"Auto-Pay blocked: ₹{authoritative_amount:,} fine for {child_name} would exceed your ₹{cap_val:,} monthly Auto-Pay limit."
+            reason_code = "MONTHLY_CAP_EXCEEDED"
+        else:
+            notif_msg = f"Auto-Pay blocked: ₹{authoritative_amount:,} fine for {child_name} - {decision.reason}"
+            reason_code = "POLICY_REJECTED"
+
+        # Record audit log specifically for over-cap rejections
+        if is_overcap:
+            try:
+                await audit_log_service.record(
+                    actor_id=link.guardianId,
+                    action="GUARDIAN_AUTOPAY_BLOCKED_OVERCAP",
+                    metadata={
+                        "guardian_id": link.guardianId,
+                        "child_id": loan.memberId,
+                        "child_name": child_name,
+                        "loan_id": loan.id,
+                        "amount": authoritative_amount,
+                        "per_transaction_cap": decision.transaction_cap,
+                        "monthly_spending_cap": decision.monthly_cap,
+                        "monthly_spent": decision.monthly_spent,
+                        "policy_decision": decision.allowed,
+                        "reason": decision.reason,
+                        "reason_code": reason_code,
+                    },
+                )
+            except Exception as exc:
+                logger.error("Failed to record GUARDIAN_AUTOPAY_BLOCKED_OVERCAP audit log: %s", exc)
+
+        try:
+            from app.modules.notifications import service as notifications_service
+            await notifications_service.create_notification(
+                user_id=link.guardianId,
+                type_="fine-reminder",
+                message=notif_msg,
+            )
+        except Exception as exc:
+            logger.error("Failed to create guardian notification on autopay rejection: %s", exc)
+
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Auto-Pay policy evaluation rejected: {decision.reason}",
+        )
+
+    # 5. Perform server-side simulated autonomous payment capture
+    try:
+        capture = await _simulate_gateway_capture(loan.id, authoritative_amount)
+        simulated_payment_id = capture["payment_id"]
+        simulated_order_id = capture["order_id"]
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("Autonomous gateway payment capture failed: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Autonomous payment capture failed: {exc}",
+        )
+
+    label = f"Guardian Auto-Pay Fine Settlement: {loan.book.title}"
+
+    # Atomic transaction ensuring loan status and payment record stay in sync
+    async with prisma.tx() as tx:
+        tx_loan = await tx.loan.find_unique(where={"id": loan.id})
+        if tx_loan and tx_loan.finePaid:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Fine charge has already been paid",
+            )
+        await tx.loan.update(
+            where={"id": loan.id},
+            data={"finePaid": True},
+        )
+        payment = await tx.payment.create(
+            data={
+                "userId": loan.memberId,
+                "amount": authoritative_amount,
+                "label": label,
+                "status": "success",
+                "razorpayPaymentId": simulated_payment_id,
+                "razorpayOrderId": simulated_order_id,
+            }
+        )
+
+    # Audit logging for successful execution
+    child_name = loan.member.fullName if (loan.member and loan.member.fullName) else "your child"
+    try:
+        await audit_log_service.record(
+            actor_id=link.guardianId,
+            action="GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED",
+            metadata={
+                "guardian_id": link.guardianId,
+                "child_id": loan.memberId,
+                "child_name": child_name,
+                "loan_id": loan.id,
+                "amount": authoritative_amount,
+                "payment_id": payment.id,
+                "razorpay_payment_id": simulated_payment_id,
+                "razorpay_order_id": simulated_order_id,
+                "per_transaction_cap": decision.transaction_cap,
+                "monthly_spending_cap": decision.monthly_cap,
+                "monthly_spent": decision.monthly_spent,
+                "settlement_type": "autonomous_simulated",
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED audit: %s", exc)
+
+    return AutopayAutonomousResponse(
+        success=True,
+        payment_id=payment.id,
+        razorpay_payment_id=simulated_payment_id,
+        razorpay_order_id=simulated_order_id,
+        amount=authoritative_amount,
+        loan_id=loan.id,
+        member_id=loan.memberId,
+        guardian_id=link.guardianId,
+        label=label,
+    )
+
+
+async def get_or_create_demo_loans(guardian_id: str):
+    """Retrieve or create deterministic fine loans for Guardian Auto-Pay demo UI."""
+    from datetime import timedelta
+    from app.modules.guardian_autopay.schemas import AutopayDemoLoansResponse
+
+    link = await prisma.guardianlink.find_first(
+        where={"guardianId": guardian_id},
+        include={"member": True},
+    )
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked child account found for this guardian",
+        )
+
+    child_id = link.memberId
+    child_name = link.member.fullName if (link.member and link.member.fullName) else "Child Member"
+    policy = await get_or_create_policy(guardian_id, child_id)
+
+    # Book for fine loans
+    book = await prisma.book.find_first()
+    if not book:
+        book = await prisma.book.create(
+            data={"title": "Library Fine Demo Book", "author": "Demo Author", "category": "Fiction"}
+        )
+
+    now = datetime.now(UTC)
+    due_3_days_ago = now - timedelta(days=3)
+    due_5_days_ago = now - timedelta(days=5)
+
+    # Find or create 3-day overdue loan (3 days @ ₹50 = ₹150) and 5-day overdue loan (5 days @ ₹50 = ₹250)
+    unpaid_loans = await prisma.loan.find_many(
+        where={"memberId": child_id, "finePaid": False, "returnedAt": None}
+    )
+
+    within_cap_loan = None
+    over_cap_loan = None
+
+    for loan in unpaid_loans:
+        days_late = max(0, (now.date() - loan.dueDate.date()).days)
+        amt = days_late * 50
+        if amt > 0 and amt <= policy.per_transaction_cap and within_cap_loan is None:
+            within_cap_loan = loan
+        elif amt > policy.per_transaction_cap and over_cap_loan is None:
+            over_cap_loan = loan
+
+    if within_cap_loan is None:
+        within_cap_loan = await prisma.loan.create(
+            data={
+                "memberId": child_id,
+                "bookId": book.id,
+                "createdById": guardian_id,
+                "dueDate": due_3_days_ago,
+                "finePaid": False,
+            }
+        )
+
+    if over_cap_loan is None:
+        over_cap_loan = await prisma.loan.create(
+            data={
+                "memberId": child_id,
+                "bookId": book.id,
+                "createdById": guardian_id,
+                "dueDate": due_5_days_ago,
+                "finePaid": False,
+            }
+        )
+
+    return AutopayDemoLoansResponse(
+        within_cap_loan_id=within_cap_loan.id,
+        within_cap_amount=150,
+        over_cap_loan_id=over_cap_loan.id,
+        over_cap_amount=250,
+        child_id=child_id,
+        child_name=child_name,
+        per_transaction_cap=policy.per_transaction_cap,
+        monthly_spending_cap=policy.monthly_spending_cap,
+    )
+
+
 
