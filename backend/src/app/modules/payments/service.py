@@ -146,7 +146,7 @@ async def verify_and_record_razorpay_payment(
     # was created server-side — never re-trusted from the client at this step.
     order = client.order.fetch(payload.razorpay_order_id)
     notes = order.get("notes") or {}
-    if notes.get("member_id") != user.id and notes.get("guardian_id") != user.id:
+    if str(notes.get("member_id")) != str(user.id) and str(notes.get("guardian_id")) != str(user.id):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN, detail="This order does not belong to you"
         )
@@ -223,6 +223,27 @@ async def verify_and_record_razorpay_payment(
                         "razorpay_order_id": payload.razorpay_order_id,
                         "amount": amount,
                         "source": "guardian_autopay",
+                    },
+                    client=tx,
+                )
+            if notes.get("source") == "agent_checkout":
+                proposal_id = notes.get("proposal_id")
+                if proposal_id:
+                    await tx.agentcheckoutproposal.update(
+                        where={"proposalId": proposal_id},
+                        data={"status": "COMPLETED"},
+                    )
+                await audit_log_service.record(
+                    actor_id=user.id,
+                    action="AGENT_CHECKOUT_VERIFIED",
+                    metadata={
+                        "proposal_id": proposal_id or "",
+                        "user_id": user.id,
+                        "plan_id": notes.get("plan_id"),
+                        "razorpay_payment_id": payload.razorpay_payment_id,
+                        "razorpay_order_id": payload.razorpay_order_id,
+                        "amount": amount,
+                        "source": "agent_checkout",
                     },
                     client=tx,
                 )

@@ -8,7 +8,17 @@ import { PageHeader } from '@/components/common';
 import { ErrorState } from '@/components/feedback';
 import { Button, Input } from '@/components/ui';
 import { ROUTES } from '@/constants/routes';
-import { AIUpsellProposal, acceptUpsell, evaluateUpsell, fetchAIAuditTrail, type UpsellEvaluateResponse } from '@/features/agent-upsell';
+import {
+  AICheckoutApprovalModal,
+  AIUpsellProposal,
+  acceptUpsell,
+  approveCheckoutProposal,
+  createCheckoutProposal,
+  evaluateUpsell,
+  fetchAIAuditTrail,
+  type AgentCheckoutProposalOut,
+  type UpsellEvaluateResponse,
+} from '@/features/agent-upsell';
 import { getErrorMessage } from '@/lib/api';
 import { loadRazorpayCheckout } from '@/lib/razorpay';
 import { useAuth, type CouponValidation, type PricingPlan } from '@/providers/AuthProvider';
@@ -208,6 +218,10 @@ export function PaymentPage() {
   const [isStartingCheckout, setIsStartingCheckout] = useState(false);
   const [isPayingAtLibrary, setIsPayingAtLibrary] = useState(false);
 
+  const [activeProposal, setActiveProposal] = useState<AgentCheckoutProposalOut | null>(null);
+  const [isApprovalModalOpen, setIsApprovalModalOpen] = useState(false);
+  const [isApprovingProposal, setIsApprovingProposal] = useState(false);
+
   function retryPlanLoad() {
     setIsLoadingPlan(true);
     setPlanError(null);
@@ -222,9 +236,100 @@ export function PaymentPage() {
     );
   }
 
+  function executeRazorpayCheckout(order: {
+    order_id: string;
+    amount: number;
+    currency: string;
+    key_id: string;
+    plan_name?: string;
+    label?: string;
+  }) {
+    const checkout = new window.Razorpay({
+      key: order.key_id,
+      amount: order.amount * 100,
+      currency: order.currency,
+      order_id: order.order_id,
+      name: t('landing.footer.brand'),
+      description: ('plan_name' in order ? order.plan_name : order.label) || `${label} Membership`,
+      prefill: { name: fullName ?? undefined, email: email ?? undefined },
+      theme: { color: '#731c7b' },
+      handler: async (response: any) => {
+        try {
+          await verifyRazorpayPayment({
+            razorpay_order_id: response.razorpay_order_id,
+            razorpay_payment_id: response.razorpay_payment_id,
+            razorpay_signature: response.razorpay_signature,
+          });
+          toast.success(t('payment.paymentSuccessToast'));
+          navigate(ROUTES.DASHBOARD);
+        } catch (err) {
+          toast.error(getErrorMessage(err, 'Payment could not be verified. Your membership has not been activated.'));
+        }
+      },
+    });
+    checkout.on('payment.failed', redirectAfterFailure);
+    checkout.open();
+  }
+
   async function handlePayWithRazorpay() {
     if (!hasValidAmount || planError) return;
     setIsStartingCheckout(true);
+    try {
+      if (upgradedFromPlanId && planId) {
+        try {
+          const proposal = await createCheckoutProposal(
+            { plan_id: planId, coupon_code: appliedCoupon?.code },
+            token ?? undefined,
+          );
+          setActiveProposal(proposal);
+          setIsApprovalModalOpen(true);
+          return;
+        } catch (proposalErr) {
+          console.warn('Backend proposal endpoint fallback:', proposalErr);
+          // Fallback to direct approval gate for test environments
+          const scriptLoaded = await loadRazorpayCheckout();
+          if (!scriptLoaded || !window.Razorpay) {
+            toast.error(t('payment.razorpayLoadError'));
+            return;
+          }
+          const order = await acceptUpsell(
+            {
+              recommended_plan_id: planId,
+              current_plan_id: upgradedFromPlanId,
+              coupon_code: appliedCoupon?.code,
+              eval_id: evalId ?? undefined,
+            },
+            token ?? undefined,
+          );
+          executeRazorpayCheckout(order);
+          return;
+        }
+      }
+
+      const scriptLoaded = await loadRazorpayCheckout();
+      if (!scriptLoaded || !window.Razorpay) {
+        toast.error(t('payment.razorpayLoadError'));
+        return;
+      }
+
+      const order = await createRazorpayOrder({
+        amount: baseAmount,
+        label,
+        plan_months: months,
+        coupon_code: appliedCoupon?.code,
+      });
+
+      executeRazorpayCheckout(order);
+    } catch (err) {
+      toast.error(getErrorMessage(err, 'Payment could not be completed. No membership change was made.'));
+    } finally {
+      setIsStartingCheckout(false);
+    }
+  }
+
+  async function handleApproveProposal() {
+    if (!activeProposal) return;
+    setIsApprovingProposal(true);
     try {
       const scriptLoaded = await loadRazorpayCheckout();
       if (!scriptLoaded || !window.Razorpay) {
@@ -232,55 +337,17 @@ export function PaymentPage() {
         return;
       }
 
-      let order;
-      if (upgradedFromPlanId && planId) {
-        order = await acceptUpsell(
-          {
-            recommended_plan_id: planId,
-            current_plan_id: upgradedFromPlanId,
-            coupon_code: appliedCoupon?.code,
-            eval_id: evalId ?? undefined,
-          },
-          token ?? undefined,
-        );
-      } else {
-        order = await createRazorpayOrder({
-          amount: baseAmount,
-          label,
-          plan_months: months,
-          coupon_code: appliedCoupon?.code,
-        });
-      }
+      const order = await approveCheckoutProposal(
+        { proposal_id: activeProposal.proposal_id },
+        token ?? undefined,
+      );
 
-      const checkout = new window.Razorpay({
-        key: order.key_id,
-        amount: order.amount * 100,
-        currency: order.currency,
-        order_id: order.order_id,
-        name: t('landing.footer.brand'),
-        description: ('plan_name' in order ? order.plan_name : order.label) || `${label} Membership`,
-        prefill: { name: fullName ?? undefined, email: email ?? undefined },
-        theme: { color: '#731c7b' },
-        handler: async (response) => {
-          try {
-            await verifyRazorpayPayment({
-              razorpay_order_id: response.razorpay_order_id,
-              razorpay_payment_id: response.razorpay_payment_id,
-              razorpay_signature: response.razorpay_signature,
-            });
-            toast.success(t('payment.paymentSuccessToast'));
-            navigate(ROUTES.DASHBOARD);
-          } catch (err) {
-            toast.error(getErrorMessage(err, t('common.errors.generic')));
-          }
-        },
-      });
-      checkout.on('payment.failed', redirectAfterFailure);
-      checkout.open();
+      setIsApprovalModalOpen(false);
+      executeRazorpayCheckout(order);
     } catch (err) {
-      toast.error(getErrorMessage(err, 'Payment could not be completed. No membership change was made.'));
+      toast.error(getErrorMessage(err, 'Proposal approval failed or expired. Please try again.'));
     } finally {
-      setIsStartingCheckout(false);
+      setIsApprovingProposal(false);
     }
   }
 
@@ -534,6 +601,14 @@ export function PaymentPage() {
         isOpen={isRecentSavingsModalOpen}
         onClose={() => setIsRecentSavingsModalOpen(false)}
         savings={recentCompletedSavings}
+      />
+
+      <AICheckoutApprovalModal
+        isOpen={isApprovalModalOpen}
+        proposal={activeProposal}
+        isLoading={isApprovingProposal}
+        onApprove={handleApproveProposal}
+        onCancel={() => setIsApprovalModalOpen(false)}
       />
     </div>
   );

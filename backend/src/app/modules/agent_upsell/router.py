@@ -6,14 +6,50 @@ from prisma.models import User
 from app.api.deps import get_current_user
 from app.modules.agent_upsell.schemas import (
     AIAuditTrailResponse,
+    AgentCheckoutApproveOut,
+    AgentCheckoutApproveRequest,
+    AgentCheckoutProposalOut,
+    AgentCheckoutProposalRequest,
     UpsellAcceptRequest,
     UpsellAcceptResponse,
     UpsellEvaluateRequest,
     UpsellEvaluateResponse,
 )
-from app.modules.agent_upsell.service import accept_upsell, evaluate_upsell, get_audit_trail
+from app.modules.agent_upsell.service import (
+    accept_upsell,
+    approve_checkout_proposal,
+    create_checkout_proposal,
+    evaluate_upsell,
+    get_audit_trail,
+)
 
 router = APIRouter(tags=["Agent Commerce"])
+
+
+@router.post(
+    "/agent/checkout/proposal",
+    response_model=AgentCheckoutProposalOut,
+    summary="Create a server-validated checkout proposal for an AI recommendation",
+)
+async def create_agent_checkout_proposal(
+    payload: AgentCheckoutProposalRequest,
+    user: Annotated[User, Depends(get_current_user)],
+) -> AgentCheckoutProposalOut:
+    """Create a server-authoritative checkout proposal with price locking, savings calculation, and 15-minute TTL."""
+    return await create_checkout_proposal(user, payload)
+
+
+@router.post(
+    "/agent/checkout/approve",
+    response_model=AgentCheckoutApproveOut,
+    summary="Explicit human member approval gate for a checkout proposal",
+)
+async def approve_agent_checkout_proposal(
+    payload: AgentCheckoutApproveRequest,
+    user: Annotated[User, Depends(get_current_user)],
+) -> AgentCheckoutApproveOut:
+    """Explicit human approval step converting a proposal to an APPROVED Razorpay payment order."""
+    return await approve_checkout_proposal(user, payload)
 
 
 @router.post(
@@ -52,4 +88,6 @@ async def get_agent_upsell_audit(
 ) -> AIAuditTrailResponse:
     """Fetch structured, append-only AI decision audit records correlated for the member."""
     return await get_audit_trail(user)
+
+
 

@@ -1,7 +1,8 @@
 import asyncio
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import Any, List, Optional, Tuple
+import uuid
 
 from fastapi import HTTPException, status
 from langchain_core.messages import HumanMessage, SystemMessage
@@ -13,6 +14,14 @@ from app.db.prisma import prisma
 from app.modules.agent_upsell.schemas import (
     AIAuditRecord,
     AIAuditTrailResponse,
+    AgentCatalogItem,
+    AgentCatalogResponse,
+    AgentCheckoutApproveRequest,
+    AgentCheckoutApproveOut,
+    AgentCheckoutProposalOut,
+    AgentCheckoutProposalRequest,
+    AgentProductEligibility,
+    AgentPurchaseAction,
     GrowthPolicyDecision,
     MemberUsageSignals,
     UpsellAcceptRequest,
@@ -502,4 +511,362 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
         )
 
     return AIAuditTrailResponse(records=records)
+
+
+async def get_agent_catalog(
+    current_user: Optional[User] = None,
+    max_price: Optional[int] = None,
+    min_months: Optional[int] = None,
+) -> AgentCatalogResponse:
+    """Fetch structured, machine-readable catalog of all available membership products for external AI agents."""
+    plans_raw = await prisma.pricingplan.find_many()
+    if not plans_raw:
+        return AgentCatalogResponse(
+            catalog_version="1.0",
+            currency="INR",
+            total_items=0,
+            items=[],
+        )
+
+    # Filter optional query params
+    filtered_plans = plans_raw
+    if max_price is not None:
+        filtered_plans = [p for p in filtered_plans if p.price <= max_price]
+    if min_months is not None:
+        filtered_plans = [p for p in filtered_plans if p.months >= min_months]
+
+    # Sort plans by duration ascending
+    filtered_plans.sort(key=lambda x: x.months)
+
+    BENEFITS_MAP = {
+        1: [
+            "Full access to 10,000+ physical book catalog",
+            "Borrow up to 3 books simultaneously",
+            "Free quiet reading zone & Wi-Fi access",
+        ],
+        3: [
+            "10% savings vs monthly renewal (Save ₹300)",
+            "Borrow up to 5 books simultaneously",
+            "Free quiet reading zone & Wi-Fi access",
+        ],
+        6: [
+            "18% savings vs monthly renewal (Save ₹1,079)",
+            "Borrow up to 5 books simultaneously",
+            "Priority event reservation access",
+        ],
+        12: [
+            "25% savings vs monthly renewal (Save ₹2,997)",
+            "Borrow up to 7 books simultaneously",
+            "Priority event reservation access",
+            "Free guest pass per quarter",
+        ],
+    }
+
+    DESCRIPTIONS_MAP = {
+        1: "Standard 1-month community library access with full borrowing and digital perks.",
+        3: "Quarterly value membership plan saving 10% compared with paying monthly.",
+        6: "Half-yearly value membership plan saving 18% compared with paying monthly.",
+        12: "Best-value annual membership saving 25% compared with paying monthly.",
+    }
+
+    items: list[AgentCatalogItem] = []
+    for plan in filtered_plans:
+        pid = getattr(plan, "planId", getattr(plan, "plan_id", str(plan.id)))
+        months = plan.months
+        save_pct = getattr(plan, "savePercent", getattr(plan, "save_percent", 0))
+        name = f"{months} Month Membership" if months != 1 else "1 Month Membership"
+        badge = getattr(plan, "badge", None)
+
+        benefits = BENEFITS_MAP.get(
+            months,
+            [
+                f"{save_pct}% savings compared to monthly plan",
+                "Full community library catalog access",
+            ],
+        )
+
+        desc = DESCRIPTIONS_MAP.get(
+            months,
+            f"Community library membership for {months} months with {save_pct}% savings.",
+        )
+
+        action_endpoint = "/api/v1/payments/create-order"
+        payload_template = {"planId": pid}
+
+        eligibility_desc = "Available to all active library members."
+        is_eligible = True
+
+        items.append(
+            AgentCatalogItem(
+                id=f"plan_{pid}",
+                product_type="membership_plan",
+                plan_id=pid,
+                name=name,
+                description=desc,
+                price=plan.price,
+                currency="INR",
+                duration_months=months,
+                save_percent=save_pct,
+                badge=badge,
+                available=True,
+                eligibility=AgentProductEligibility(
+                    requires_auth=True,
+                    eligible=is_eligible,
+                    description=eligibility_desc,
+                ),
+                benefits=benefits,
+                purchase_action=AgentPurchaseAction(
+                    method="POST",
+                    endpoint=action_endpoint,
+                    payload_template=payload_template,
+                    supported_gateways=["razorpay", "pay_at_library"],
+                ),
+            )
+        )
+
+    return AgentCatalogResponse(
+        catalog_version="1.0",
+        currency="INR",
+        total_items=len(items),
+        items=items,
+    )
+
+
+async def create_checkout_proposal(
+    user: User, payload: AgentCheckoutProposalRequest
+) -> AgentCheckoutProposalOut:
+    """Create a server-authoritative checkout proposal for an AI recommendation."""
+    # 1. Resolve target pricing plan
+    plans_raw = await prisma.pricingplan.find_many()
+    plan = None
+    baseline_1m_plan = None
+    for p in plans_raw:
+        pid = getattr(p, "planId", getattr(p, "plan_id", str(p.id)))
+        if pid == payload.plan_id or str(p.months) == payload.plan_id.replace("m", ""):
+            plan = p
+        if p.months == 1:
+            baseline_1m_plan = p
+
+    if plan is None or not getattr(plan, "is_active", True):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Unknown or inactive membership plan ID",
+        )
+
+    # 2. Baseline cost & server price calculations
+    months = plan.months
+    plan_id = getattr(plan, "planId", getattr(plan, "plan_id", str(plan.id)))
+    original_price = plan.price
+    name = f"{months} Month Membership" if months != 1 else "1 Month Membership"
+
+    baseline_monthly_price = baseline_1m_plan.price if baseline_1m_plan else 999
+    baseline_cost = baseline_monthly_price * months
+
+    final_price = original_price
+    coupon_code = payload.coupon_code
+
+    if coupon_code:
+        coupon = await coupons_service.validate_coupon(coupon_code)
+        final_price = round(original_price * (100 - coupon.discount_percent) / 100)
+
+    savings_amount = max(0, baseline_cost - final_price)
+    savings_percent = round((savings_amount / baseline_cost) * 100) if baseline_cost > 0 else 0
+
+    # 3. Create persisted AgentCheckoutProposal DB entity
+    proposal_id = f"prop_{uuid.uuid4().hex[:16]}"
+    expires_at = datetime.now(UTC) + timedelta(minutes=15)
+
+    created_proposal = await prisma.agentcheckoutproposal.create(
+        data={
+            "proposalId": proposal_id,
+            "userId": user.id,
+            "planId": plan_id,
+            "originalPrice": original_price,
+            "finalPrice": final_price,
+            "savingsAmount": savings_amount,
+            "savingsPercent": savings_percent,
+            "couponCode": coupon_code,
+            "status": "PENDING_APPROVAL",
+            "agentId": payload.agent_id,
+            "expiresAt": expires_at,
+        }
+    )
+
+    # 4. Record AGENT_CHECKOUT_PROPOSED audit event
+    try:
+        await audit_log_service.record(
+            actor_id=user.id,
+            action="AGENT_CHECKOUT_PROPOSED",
+            metadata={
+                "proposal_id": proposal_id,
+                "user_id": user.id,
+                "plan_id": plan_id,
+                "original_price": original_price,
+                "final_price": final_price,
+                "savings_amount": savings_amount,
+                "coupon_code": coupon_code or "",
+                "agent_id": payload.agent_id or "",
+                "expires_at": expires_at.isoformat(),
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record AGENT_CHECKOUT_PROPOSED audit log: %s", exc)
+
+    return AgentCheckoutProposalOut(
+        proposal_id=proposal_id,
+        status="PENDING_APPROVAL",
+        plan_id=plan_id,
+        plan_name=name,
+        duration_months=months,
+        original_price=original_price,
+        final_price=final_price,
+        savings_amount=savings_amount,
+        savings_percent=savings_percent,
+        currency="INR",
+        coupon_code=coupon_code,
+        expires_at=expires_at,
+        approval_url="/api/v1/agent/checkout/approve",
+    )
+
+
+async def approve_checkout_proposal(
+    user: User, payload: AgentCheckoutApproveRequest
+) -> AgentCheckoutApproveOut:
+    """Explicit human member approval gate for a checkout proposal."""
+    # 1. Fetch proposal from DB
+    proposal = await prisma.agentcheckoutproposal.find_unique(
+        where={"proposalId": payload.proposal_id}
+    )
+    if proposal is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Checkout proposal not found",
+        )
+
+    # 2. Validate proposal ownership
+    if proposal.userId != user.id:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Proposal ownership mismatch",
+        )
+
+    # 3. Check TTL expiration
+    now = datetime.now(UTC)
+    exp = proposal.expiresAt
+    if exp.tzinfo is None:
+        exp = exp.replace(tzinfo=UTC)
+    else:
+        exp = exp.astimezone(UTC)
+
+    if exp < now:
+        if proposal.status == "PENDING_APPROVAL":
+            await prisma.agentcheckoutproposal.update(
+                where={"proposalId": payload.proposal_id},
+                data={"status": "EXPIRED"},
+            )
+            try:
+                await audit_log_service.record(
+                    actor_id=user.id,
+                    action="AGENT_CHECKOUT_EXPIRED",
+                    metadata={
+                        "proposal_id": payload.proposal_id,
+                        "user_id": user.id,
+                        "reason": "Proposal TTL expired",
+                    },
+                )
+            except Exception as exc:
+                logger.error("Failed to record AGENT_CHECKOUT_EXPIRED audit log: %s", exc)
+
+        raise HTTPException(
+            status_code=status.HTTP_410_GONE,
+            detail="Checkout proposal has expired",
+        )
+
+    # 4. Check status
+    if proposal.status != "PENDING_APPROVAL":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Proposal cannot be approved in status '{proposal.status}'",
+        )
+
+    # 5. Fetch plan info for label
+    plans_raw = await prisma.pricingplan.find_many()
+    plan = next(
+        (
+            p
+            for p in plans_raw
+            if getattr(p, "planId", getattr(p, "plan_id", str(p.id))) == proposal.planId
+        ),
+        None,
+    )
+    months = plan.months if plan else 1
+    plan_name = f"{months} Month Membership" if months != 1 else "1 Month Membership"
+
+    # 6. Create Razorpay order using persisted server-authoritative finalPrice
+    client = payments_service._get_client()
+    order = client.order.create(
+        {
+            "amount": proposal.finalPrice * 100,
+            "currency": "INR",
+            "notes": {
+                "member_id": user.id,
+                "label": f"{months} month membership",
+                "plan_months": str(months),
+                "plan_id": proposal.planId,
+                "coupon_code": proposal.couponCode or "",
+                "proposal_id": proposal.proposalId,
+                "source": "agent_checkout",
+            },
+        }
+    )
+
+    # 7. Update proposal status to APPROVED & store orderId
+    approved_at = datetime.now(UTC)
+    await prisma.agentcheckoutproposal.update(
+        where={"proposalId": payload.proposal_id},
+        data={
+            "status": "APPROVED",
+            "approvedAt": approved_at,
+            "orderId": order["id"],
+        },
+    )
+
+    # 8. Record audit log events
+    try:
+        await audit_log_service.record(
+            actor_id=user.id,
+            action="AGENT_CHECKOUT_APPROVED",
+            metadata={
+                "proposal_id": proposal.proposalId,
+                "user_id": user.id,
+                "approved_at": approved_at.isoformat(),
+            },
+        )
+        await audit_log_service.record(
+            actor_id=user.id,
+            action="AGENT_CHECKOUT_ORDER_CREATED",
+            metadata={
+                "proposal_id": proposal.proposalId,
+                "user_id": user.id,
+                "order_id": order["id"],
+                "amount": proposal.finalPrice,
+                "source": "agent_checkout",
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record AGENT_CHECKOUT audit logs: %s", exc)
+
+    return AgentCheckoutApproveOut(
+        proposal_id=proposal.proposalId,
+        status="APPROVED",
+        order_id=order["id"],
+        amount=proposal.finalPrice,
+        currency="INR",
+        key_id=get_settings().razorpay_key_id,
+        plan_id=proposal.planId,
+        plan_name=plan_name,
+        source="agent_checkout",
+    )
+
+
 

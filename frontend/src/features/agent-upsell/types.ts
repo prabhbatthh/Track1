@@ -68,3 +68,42 @@ export interface AIAuditTrailResponse {
   records: AIAuditRecord[];
 }
 
+export interface AgentCheckoutProposalRequest {
+  plan_id: string;
+  coupon_code?: string;
+  agent_id?: string;
+}
+
+export interface AgentCheckoutProposalOut {
+  proposal_id: string;
+  status: 'PENDING_APPROVAL' | 'APPROVED' | 'COMPLETED' | 'EXPIRED';
+  plan_id: string;
+  plan_name: string;
+  duration_months: number;
+  original_price: number;
+  final_price: number;
+  savings_amount: number;
+  savings_percent: number;
+  currency: string;
+  coupon_code?: string | null;
+  expires_at: string;
+  approval_url: string;
+}
+
+export interface AgentCheckoutApproveRequest {
+  proposal_id: string;
+}
+
+export interface AgentCheckoutApproveOut {
+  proposal_id: string;
+  status: 'APPROVED';
+  order_id: string;
+  amount: number;
+  currency: string;
+  key_id?: string;
+  plan_id: string;
+  plan_name: string;
+  source: string;
+}
+
+

@@ -3,13 +3,19 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
 import { PaymentPage } from './PaymentPage';
-import * as agentUpsellApi from '@/features/agent-upsell/api';
+import * as agentUpsellApi from '@/features/agent-upsell';
 
-vi.mock('@/features/agent-upsell/api', () => ({
-  evaluateUpsell: vi.fn(),
-  acceptUpsell: vi.fn(),
-  fetchAIAuditTrail: vi.fn().mockResolvedValue({ records: [] }),
-}));
+vi.mock('@/features/agent-upsell', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/features/agent-upsell')>();
+  return {
+    ...actual,
+    evaluateUpsell: vi.fn(),
+    acceptUpsell: vi.fn(),
+    createCheckoutProposal: vi.fn(),
+    approveCheckoutProposal: vi.fn(),
+    fetchAIAuditTrail: vi.fn().mockResolvedValue({ records: [] }),
+  };
+});
 
 vi.mock('@/providers/AuthProvider', () => ({
   useAuth: () => ({
@@ -104,8 +110,33 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
     expect(agentUpsellApi.acceptUpsell).not.toHaveBeenCalled();
   });
 
-  it('triggers acceptUpsell ONLY when user explicitly clicks Pay with Razorpay after selecting recommendation', async () => {
+  it('triggers checkout proposal and explicit approval gate ONLY when user clicks Pay with Razorpay after selecting recommendation', async () => {
     vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue(mockUpsellProposal);
+    vi.mocked(agentUpsellApi.createCheckoutProposal).mockResolvedValue({
+      proposal_id: 'prop_test_123',
+      status: 'PENDING_APPROVAL',
+      plan_id: '12m',
+      plan_name: '12 Month Membership',
+      duration_months: 12,
+      original_price: 8991,
+      final_price: 8092,
+      savings_amount: 3896,
+      savings_percent: 32,
+      currency: 'INR',
+      expires_at: '2026-08-26T14:00:00.000Z',
+      approval_url: '/api/v1/agent/checkout/approve',
+    });
+    vi.mocked(agentUpsellApi.approveCheckoutProposal).mockResolvedValue({
+      proposal_id: 'prop_test_123',
+      status: 'APPROVED',
+      order_id: 'order_test_123',
+      amount: 8092,
+      currency: 'INR',
+      key_id: 'rzp_test_123',
+      plan_id: '12m',
+      plan_name: '12 Month Membership',
+      source: 'agent_checkout',
+    });
     vi.mocked(agentUpsellApi.acceptUpsell).mockResolvedValue({
       order_id: 'order_123',
       amount: 8991,
@@ -137,14 +168,23 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
     // Step 1: Select recommendation
     fireEvent.click(screen.getByText(/Upgrade & Save/i));
     expect(agentUpsellApi.acceptUpsell).not.toHaveBeenCalled();
+    expect(agentUpsellApi.approveCheckoutProposal).not.toHaveBeenCalled();
 
-    // Step 2: Explicit Consent — Click "Pay with Razorpay"
+    // Step 2: Click "Pay with Razorpay" -> Creates Proposal and opens Approval Modal
     const payBtn = screen.getByRole('button', { name: /Pay with Razorpay/i });
     fireEvent.click(payBtn);
 
     await waitFor(() => {
-      expect(agentUpsellApi.acceptUpsell).toHaveBeenCalledWith(
-        { recommended_plan_id: '12m', current_plan_id: '1m', coupon_code: undefined },
+      expect(screen.getByTestId('ai-approval-modal')).toBeInTheDocument();
+    });
+
+    // Step 3: Explicit Human Approval in Modal
+    const approveBtn = screen.getByTestId('ai-approve-btn');
+    fireEvent.click(approveBtn);
+
+    await waitFor(() => {
+      expect(agentUpsellApi.approveCheckoutProposal).toHaveBeenCalledWith(
+        { proposal_id: 'prop_test_123' },
         'mock-token'
       );
     });

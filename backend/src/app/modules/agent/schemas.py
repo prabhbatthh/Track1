@@ -17,16 +17,47 @@ class AgentMerchantInfo(BaseModel):
     )
 
 
+class AgentPurchaseAction(BaseModel):
+    method: str = Field("POST", description="HTTP method for purchase execution")
+    endpoint: str = Field(..., description="Server-authoritative purchase endpoint")
+    payload_template: dict[str, str] = Field(..., description="Template of required purchase parameters")
+    supported_gateways: list[str] = Field(
+        default_factory=lambda: ["razorpay", "pay_at_library"],
+        description="Supported payment gateways for checkout",
+    )
+
+
+class AgentProductEligibility(BaseModel):
+    requires_auth: bool = Field(True, description="Whether authentication is required for checkout")
+    eligible: bool = Field(True, description="Whether member is eligible for this item")
+    description: str = Field(..., description="Human and AI readable eligibility requirement")
+
+
 class AgentMembershipPlan(BaseModel):
     id: str
     plan_id: str
     name: str
+    description: str = Field("Community library membership plan", description="AI-understandable plan description")
     months: int
     price: int
     currency: str = "INR"
     availability: str = "available"
     save_percent: int = 0
     badge: Optional[str] = None
+    benefits: list[str] = Field(default_factory=list, description="Structured feature benefits list")
+    eligibility: AgentProductEligibility = Field(
+        default_factory=lambda: AgentProductEligibility(
+            requires_auth=True, eligible=True, description="Available to active library members"
+        )
+    )
+    purchase_action: AgentPurchaseAction = Field(
+        default_factory=lambda: AgentPurchaseAction(
+            method="POST",
+            endpoint="/api/v1/payments/create-order",
+            payload_template={"planId": "1m"},
+            supported_gateways=["razorpay", "pay_at_library"],
+        )
+    )
 
 
 class AgentCatalogBook(BaseModel):
