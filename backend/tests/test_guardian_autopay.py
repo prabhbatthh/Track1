@@ -404,7 +404,7 @@ async def test_execute_autonomous_autopay_idempotency():
 
 @pytest.mark.asyncio
 async def test_execute_autonomous_autopay_concurrent_race_condition():
-    """Verify Step 2: Concurrent simultaneous execution attempts result in exactly 1 successful payment and zero duplicate payments."""
+    """Verify Step 2 & Step 8: Concurrent simultaneous execution attempts result in exactly 1 successful payment and 1 clean HTTP 409 Conflict."""
     import asyncio
     guardian, child, link = await setup_guardian_and_child()
 
@@ -419,11 +419,13 @@ async def test_execute_autonomous_autopay_concurrent_race_condition():
     )
 
     successes = [r for r in results if not isinstance(r, Exception)]
-    conflicts = [r for r in results if getattr(r, "status_code", None) == 409]
+    conflicts = [r for r in results if isinstance(r, HTTPException) and r.status_code == 409]
+    unhandled = [r for r in results if isinstance(r, Exception) and not (isinstance(r, HTTPException) and r.status_code == 409)]
 
-    # Exactly 1 request succeeds, exactly 1 request gets HTTP 409 Conflict
-    assert len(successes) == 1
-    assert len(conflicts) == 1
+    # Exactly 1 request succeeds, exactly 1 request gets HTTP 409 Conflict, 0 unhandled exceptions
+    assert len(successes) == 1, f"Expected 1 success, got {len(successes)}: {results}"
+    assert len(conflicts) == 1, f"Expected 1 HTTP 409 conflict, got {len(conflicts)}: {results}"
+    assert len(unhandled) == 0, f"Expected 0 unhandled exceptions, got: {unhandled}"
 
     # Database state verification: loan is finePaid=True, exactly 1 Payment record created
     loan_db = await prisma.loan.find_unique(where={"id": loan.id})
@@ -434,6 +436,12 @@ async def test_execute_autonomous_autopay_concurrent_race_condition():
     )
     assert len(payments) == 1
     assert payments[0].amount == 150
+
+    # Successful audit count is exactly 1
+    successful_audits = await prisma.auditlogentry.find_many(
+        where={"actorId": guardian.id, "action": "GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED"}
+    )
+    assert len(successful_audits) == 1
 
 
 @pytest.mark.asyncio

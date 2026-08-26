@@ -725,25 +725,41 @@ async def execute_autonomous_autopay(
     label = f"Guardian Auto-Pay Fine Settlement: {loan.book.title}"
 
     # Atomic transaction ensuring loan status and payment record stay in sync
-    async with prisma.tx() as tx:
-        updated_count = await tx.loan.update_many(
-            where={"id": loan.id, "finePaid": False},
-            data={"finePaid": True},
-        )
-        if updated_count == 0:
+    try:
+        async with prisma.tx() as tx:
+            updated_count = await tx.loan.update_many(
+                where={"id": loan.id, "finePaid": False},
+                data={"finePaid": True},
+            )
+            if updated_count == 0:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Fine charge has already been paid",
+                )
+            payment = await tx.payment.create(
+                data={
+                    "userId": loan.memberId,
+                    "amount": authoritative_amount,
+                    "label": label,
+                    "status": "success",
+                    "razorpayPaymentId": simulated_payment_id,
+                    "razorpayOrderId": simulated_order_id,
+                }
+            )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        # Check if the loan was settled concurrently by checking DB state
+        fresh_loan = await prisma.loan.find_unique(where={"id": loan.id})
+        if fresh_loan and fresh_loan.finePaid:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Fine charge has already been paid",
             )
-        payment = await tx.payment.create(
-            data={
-                "userId": loan.memberId,
-                "amount": authoritative_amount,
-                "label": label,
-                "status": "success",
-                "razorpayPaymentId": simulated_payment_id,
-                "razorpayOrderId": simulated_order_id,
-            }
+        logger.error("Database transaction error during autonomous settlement: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Database transaction error: {exc}",
         )
 
     # Audit logging for successful execution
