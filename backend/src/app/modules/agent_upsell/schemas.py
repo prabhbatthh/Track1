@@ -33,6 +33,7 @@ class GrowthPolicyDecision(BaseModel):
 
 
 class UpsellEvaluateResponse(BaseModel):
+    eval_id: Optional[str] = Field(None, description="Unique correlation token for audit trail")
     eligible: bool
     usage_signals: Optional[MemberUsageSignals] = None
     policy: Optional[GrowthPolicyDecision] = None
@@ -48,6 +49,7 @@ class UpsellAcceptRequest(BaseModel):
     recommended_plan_id: str = Field(..., description="ID of recommended plan (e.g. '12m')")
     current_plan_id: str = Field(..., description="ID of current plan (e.g. '1m', '3m')")
     coupon_code: Optional[str] = Field(None, description="Optional coupon code")
+    eval_id: Optional[str] = Field(None, description="Optional correlation token from AI evaluation")
 
 
 class UpsellAcceptResponse(BaseModel):
@@ -58,3 +60,26 @@ class UpsellAcceptResponse(BaseModel):
     plan_id: str
     plan_name: str
     source: str = "ai_upsell"
+
+
+class AIAuditRecord(BaseModel):
+    audit_id: str = Field(..., description="Unique ID of recommendation audit entry")
+    eval_id: str = Field(..., description="Correlation token for this recommendation cycle")
+    timestamp: str = Field(..., description="ISO datetime of evaluation")
+    current_plan: Optional[UpsellPlanInfo] = None
+    recommended_plan: Optional[UpsellPlanInfo] = None
+    usage_signals: Optional[MemberUsageSignals] = None
+    decision: str = Field(..., description="'recommend' or 'no_offer'")
+    reason_code: str = Field(..., description="'high_usage', 'insufficient_usage', etc.")
+    explanation: str
+    savings_amount: Optional[int] = None
+    savings_percent: Optional[int] = None
+    accepted: bool = False
+    payment_initiated: bool = False
+    payment_status: str = Field("pending", description="'pending', 'accepted', 'initiated', 'completed'")
+    order_id: Optional[str] = None
+
+
+class AIAuditTrailResponse(BaseModel):
+    records: list[AIAuditRecord]
+

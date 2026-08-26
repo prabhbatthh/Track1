@@ -8,11 +8,12 @@ import { PageHeader } from '@/components/common';
 import { ErrorState } from '@/components/feedback';
 import { Button, Input } from '@/components/ui';
 import { ROUTES } from '@/constants/routes';
-import { AIUpsellProposal, acceptUpsell, evaluateUpsell, type UpsellEvaluateResponse } from '@/features/agent-upsell';
+import { AIUpsellProposal, acceptUpsell, evaluateUpsell, fetchAIAuditTrail, type UpsellEvaluateResponse } from '@/features/agent-upsell';
 import { getErrorMessage } from '@/lib/api';
 import { loadRazorpayCheckout } from '@/lib/razorpay';
 import { useAuth, type CouponValidation, type PricingPlan } from '@/providers/AuthProvider';
 import { AISavingsPanel } from '../components/AISavingsPanel';
+import { RecentAISavingsModal } from '../components/RecentAISavingsModal';
 
 // Auth is already enforced by the ProtectedRoute this page is nested under
 // (see AppRouter.tsx) — no need to re-check isAuthenticated here.
@@ -54,6 +55,7 @@ export function PaymentPage() {
   const [isEvaluatingUpsell, setIsEvaluatingUpsell] = useState<boolean>(Boolean(planId && !upsellDismissed));
   const [isImageExpanded, setIsImageExpanded] = useState<boolean>(false);
   const [upgradedFromPlanId, setUpgradedFromPlanId] = useState<string | null>(null);
+  const [isRecentSavingsModalOpen, setIsRecentSavingsModalOpen] = useState<boolean>(false);
 
   useEffect(() => {
     if (!planId) return;
@@ -84,17 +86,49 @@ export function PaymentPage() {
     };
   }, [getPricingPlans, planId, planRequestKey, t]);
 
+  const [evalId, setEvalId] = useState<string | null>(null);
+  const [upsellError, setUpsellError] = useState<string | null>(null);
+  const [recentCompletedSavings, setRecentCompletedSavings] = useState<
+    Array<{ id: string; planName: string; savingsAmount: number }>
+  >([]);
+
+  useEffect(() => {
+    if (!token) return;
+    let active = true;
+    fetchAIAuditTrail(token)
+      .then((data) => {
+        if (!active) return;
+        const completed = (data.records || [])
+          .filter((r) => r.payment_status === 'completed' && r.accepted)
+          .map((r, idx) => ({
+            id: r.eval_id || `completed_${idx}`,
+            planName: r.recommended_plan?.name || '12 Month Membership',
+            savingsAmount: r.savings_amount || 2997,
+          }));
+        setRecentCompletedSavings(completed);
+      })
+      .catch((err) => {
+        console.warn('AI audit trail fetch skipped or failed for member history:', err);
+      });
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
   useEffect(() => {
     if (!planId || upsellDismissed) return;
     let active = true;
     setIsEvaluatingUpsell(true);
+    setUpsellError(null);
     evaluateUpsell({ current_plan_id: planId }, token ?? undefined)
       .then((data) => {
         if (!active) return;
         setUpsellProposal(data);
+        if (data.eval_id) setEvalId(data.eval_id);
       })
       .catch((err) => {
         console.warn('AI upsell evaluation failed or skipped:', err);
+        if (active) setUpsellError('AI recommendations are temporarily unavailable.');
       })
       .finally(() => {
         if (active) setIsEvaluatingUpsell(false);
@@ -205,6 +239,7 @@ export function PaymentPage() {
             recommended_plan_id: planId,
             current_plan_id: upgradedFromPlanId,
             coupon_code: appliedCoupon?.code,
+            eval_id: evalId ?? undefined,
           },
           token ?? undefined,
         );
@@ -376,6 +411,17 @@ export function PaymentPage() {
             </div>
           )}
 
+          {/* Graceful AI evaluation failure fallback indicator */}
+          {upsellError && !upsellDismissed && (
+            <div data-testid="ai-failure-fallback" className="flex items-center justify-between rounded-2xl border border-amber-200/80 bg-amber-50/60 p-3.5 text-xs text-amber-950 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+              <div className="flex items-center gap-2">
+                <Bot className="size-4 text-amber-600 dark:text-amber-400 shrink-0" />
+                <span>AI recommendations are temporarily unavailable.</span>
+              </div>
+              <span className="font-semibold text-amber-800 dark:text-amber-300 text-[11px]">Normal checkout active</span>
+            </div>
+          )}
+
           {/* AI Upsell Recommendation Smart Tip Card */}
           {!isEvaluatingUpsell && upsellProposal && upsellProposal.eligible && !upsellDismissed && (
             <AIUpsellProposal
@@ -475,10 +521,20 @@ export function PaymentPage() {
               isAiRecommended={isAiRecommended}
               selectedPlan={plan!}
               monthlyPlan={monthlyCatalogPlan!}
+              isPaymentCompleted={params.get('success') === '1'}
+              previousAiSavings={upgradedFromPlanId ? 2997 : null}
+              recentCompletedSavings={recentCompletedSavings}
+              onOpenRecentSavingsModal={() => setIsRecentSavingsModalOpen(true)}
             />
           </div>
         )}
       </div>
+
+      <RecentAISavingsModal
+        isOpen={isRecentSavingsModalOpen}
+        onClose={() => setIsRecentSavingsModalOpen(false)}
+        savings={recentCompletedSavings}
+      />
     </div>
   );
 }

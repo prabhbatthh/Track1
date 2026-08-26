@@ -5,12 +5,13 @@ from prisma.models import User
 
 from app.api.deps import get_current_user
 from app.modules.agent_upsell.schemas import (
+    AIAuditTrailResponse,
     UpsellAcceptRequest,
     UpsellAcceptResponse,
     UpsellEvaluateRequest,
     UpsellEvaluateResponse,
 )
-from app.modules.agent_upsell.service import accept_upsell, evaluate_upsell
+from app.modules.agent_upsell.service import accept_upsell, evaluate_upsell, get_audit_trail
 
 router = APIRouter(tags=["Agent Commerce"])
 
@@ -39,3 +40,16 @@ async def accept_agent_upsell(
 ) -> UpsellAcceptResponse:
     """Accept an explicit upgrade recommendation and create a server-bounded Razorpay order."""
     return await accept_upsell(payload, user)
+
+
+@router.get(
+    "/agent/upsell/audit",
+    response_model=AIAuditTrailResponse,
+    summary="Fetch structured AI decision audit trail entries for the member",
+)
+async def get_agent_upsell_audit(
+    user: Annotated[User, Depends(get_current_user)],
+) -> AIAuditTrailResponse:
+    """Fetch structured, append-only AI decision audit records correlated for the member."""
+    return await get_audit_trail(user)
+

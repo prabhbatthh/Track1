@@ -40,8 +40,8 @@ const mockIneligibleProposal: UpsellEvaluateResponse = {
   ai_generated: false,
 };
 
-describe('AIUpsellProposal Component (Exact Match Design)', () => {
-  it('renders exact match AI Smart Tip card', () => {
+describe('AIUpsellProposal Component (Clean Consumer Design)', () => {
+  it('renders clean consumer AI proposal card with focal savings', () => {
     const onConsiderUpgrade = vi.fn();
 
     render(
@@ -51,17 +51,13 @@ describe('AIUpsellProposal Component (Exact Match Design)', () => {
       />
     );
 
-    // AI Tip badge & heading
-    expect(screen.getByText(/AI SMART TIP/i)).toBeInTheDocument();
-    expect(screen.getByText(/Upgrade & Save/i)).toBeInTheDocument();
-
-    // Rationale text
-    expect(
-      screen.getByText(/"Upgrading to 12 Month Membership saves you 25% per month with extended access."/i)
-    ).toBeInTheDocument();
+    // AI badge & focal savings heading
+    expect(screen.getByText(/AI FOUND A BETTER DEAL/i)).toBeInTheDocument();
+    expect(screen.getByText(/SAVE ₹7,992/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI found this saving for you based on your library usage/i)).toBeInTheDocument();
   });
 
-  it('renders SMART TIP badge when ai_generated is false', () => {
+  it('renders AI FOUND A BETTER DEAL badge when proposal is eligible', () => {
     render(
       <AIUpsellProposal
         proposal={mockFallbackProposal}
@@ -69,7 +65,7 @@ describe('AIUpsellProposal Component (Exact Match Design)', () => {
       />
     );
 
-    expect(screen.getByText(/SMART TIP/i)).toBeInTheDocument();
+    expect(screen.getByText(/AI FOUND A BETTER DEAL/i)).toBeInTheDocument();
   });
 
   it('renders nothing when eligible is false', () => {
@@ -83,7 +79,7 @@ describe('AIUpsellProposal Component (Exact Match Design)', () => {
     expect(container.firstChild).toBeNull();
   });
 
-  it('triggers onConsiderUpgrade callback when user clicks Switch to 12 Months button', () => {
+  it('triggers onConsiderUpgrade callback when user clicks Upgrade & Save button', () => {
     const onConsiderUpgrade = vi.fn();
     render(
       <AIUpsellProposal
@@ -92,7 +88,7 @@ describe('AIUpsellProposal Component (Exact Match Design)', () => {
       />
     );
 
-    const upgradeButton = screen.getByRole('button', { name: /(Upgrade|Switch) to 12 Months/i });
+    const upgradeButton = screen.getByRole('button', { name: /Upgrade & Save/i });
     fireEvent.click(upgradeButton);
 
     expect(onConsiderUpgrade).toHaveBeenCalledTimes(1);

@@ -93,6 +93,35 @@ async def test_agent_upsell_valid_upgrade():
 
 
 @pytest.mark.asyncio
+async def test_agent_upsell_multi_tier_recommendations():
+    """Test that growth engine selects appropriate higher plan tier based on usage intensity."""
+    user, token = await get_test_user_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    from app.modules.agent_upsell.schemas import MemberUsageSignals
+
+    # Light usage (1 loan, 1 visit -> 2 total activity) should recommend 3m plan
+    light_signals = MemberUsageSignals(total_loans=1, active_loans=1, total_visits=1)
+    with patch("app.modules.agent_upsell.service.get_member_usage_signals", return_value=light_signals):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.post("/api/v1/agent/upsell/evaluate", json={"current_plan_id": "1m"}, headers=headers)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["recommended_plan"]["months"] == 3
+            assert data["recommended_plan"]["plan_id"] == "3m"
+
+    # Moderate usage (3 loans, 2 visits -> 5 total activity) should recommend 6m plan
+    mod_signals = MemberUsageSignals(total_loans=3, active_loans=1, total_visits=2)
+    with patch("app.modules.agent_upsell.service.get_member_usage_signals", return_value=mod_signals):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            res = await client.post("/api/v1/agent/upsell/evaluate", json={"current_plan_id": "1m"}, headers=headers)
+            assert res.status_code == 200
+            data = res.json()
+            assert data["recommended_plan"]["months"] == 6
+            assert data["recommended_plan"]["plan_id"] == "6m"
+
+
+@pytest.mark.asyncio
 async def test_agent_upsell_no_usage_insufficient_policy():
     """Test member with 0 loans and 0 visits receives no_offer policy decision."""
     user, token = await get_test_user_and_token()
@@ -279,6 +308,40 @@ async def test_agent_upsell_audit_logging():
     assert audit_entry.action == "UPSELL_RECOMMENDED"
     assert "usage_signals" in audit_entry.metadata
     assert "policy_decision" in audit_entry.metadata
+
+
+@pytest.mark.asyncio
+async def test_agent_upsell_audit_trail_endpoint():
+    """Test GET /api/v1/agent/upsell/audit endpoint returns correlated audit records."""
+    user, token = await get_test_user_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    from app.modules.agent_upsell.schemas import MemberUsageSignals
+    mock_signals = MemberUsageSignals(total_loans=2, active_loans=1, total_visits=3)
+
+    with patch("app.modules.agent_upsell.service.get_member_usage_signals", return_value=mock_signals):
+        async with AsyncClient(
+            transport=ASGITransport(app=app), base_url="http://test"
+        ) as client:
+            # 1. Evaluate
+            eval_resp = await client.post(
+                "/api/v1/agent/upsell/evaluate",
+                json={"current_plan_id": "1m"},
+                headers=headers,
+            )
+            assert eval_resp.status_code == 200
+            eval_data = eval_resp.json()
+            assert "eval_id" in eval_data
+
+            # 2. Query audit endpoint
+            audit_resp = await client.get("/api/v1/agent/upsell/audit", headers=headers)
+            assert audit_resp.status_code == 200
+            audit_data = audit_resp.json()
+            assert "records" in audit_data
+            assert len(audit_data["records"]) >= 1
+            rec = audit_data["records"][0]
+            assert rec["reason_code"] == "high_usage"
+            assert rec["payment_status"] == "pending"
 
 
 @pytest.mark.asyncio

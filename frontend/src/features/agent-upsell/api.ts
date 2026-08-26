@@ -1,6 +1,7 @@
-import { apiPost } from '@/lib/api';
+import { apiGet, apiPost } from '@/lib/api';
 
 import type {
+  AIAuditTrailResponse,
   UpsellAcceptRequest,
   UpsellAcceptResponse,
   UpsellEvaluateRequest,
@@ -20,3 +21,8 @@ export async function acceptUpsell(
 ): Promise<UpsellAcceptResponse> {
   return apiPost<UpsellAcceptResponse>('/agent/upsell/accept', payload, token);
 }
+
+export async function fetchAIAuditTrail(token?: string): Promise<AIAuditTrailResponse> {
+  return apiGet<AIAuditTrailResponse>('/agent/upsell/audit', token);
+}
+

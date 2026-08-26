@@ -11,6 +11,8 @@ from app.core.config import get_settings
 from app.core.llm import build_chat_llm
 from app.db.prisma import prisma
 from app.modules.agent_upsell.schemas import (
+    AIAuditRecord,
+    AIAuditTrailResponse,
     GrowthPolicyDecision,
     MemberUsageSignals,
     UpsellAcceptRequest,
@@ -62,7 +64,7 @@ def evaluate_growth_policy(
     current_plan_info: UpsellPlanInfo,
     higher_plans: List[Any],
 ) -> Tuple[GrowthPolicyDecision, bool, Optional[Any]]:
-    """Evaluate deterministic usage policy to determine eligibility and best plan."""
+    """Evaluate deterministic usage policy to determine eligibility and best plan based on usage intensity."""
     if not higher_plans:
         return (
             GrowthPolicyDecision(
@@ -87,8 +89,23 @@ def evaluate_growth_policy(
             None,
         )
 
-    # High / active usage member -> Recommend upgrade
-    recommended_db_plan = higher_plans[0]
+    # Sort higher plans by duration ascending (e.g. 3m, 6m, 12m)
+    sorted_plans = sorted(higher_plans, key=lambda x: x.months)
+
+    total_activity = signals.total_loans + signals.total_visits
+
+    # Usage-based plan selection:
+    # Light activity (1-3): Recommend lower upgrade tier (e.g. 3m)
+    # Moderate activity (4-8): Recommend mid upgrade tier (e.g. 6m)
+    # Heavy activity (9+ or 5+ loans): Recommend highest value tier (e.g. 12m)
+    if total_activity <= 3:
+        recommended_db_plan = sorted_plans[0]
+    elif total_activity <= 8:
+        mid_idx = min(1, len(sorted_plans) - 1)
+        recommended_db_plan = sorted_plans[mid_idx]
+    else:
+        recommended_db_plan = sorted_plans[-1]
+
     rec_info = _to_plan_info(recommended_db_plan)
     usage_desc = []
     if signals.total_loans > 0:
@@ -102,7 +119,7 @@ def evaluate_growth_policy(
         GrowthPolicyDecision(
             decision="recommend",
             reason_code="high_usage",
-            reason=f"Active library usage ({usage_str}) makes a longer membership more cost-effective.",
+            reason=f"Active library usage ({usage_str}) makes a {rec_info.name} more cost-effective.",
         ),
         True,
         recommended_db_plan,
@@ -149,7 +166,6 @@ async def evaluate_upsell(
 
     # 4. Find eligible higher-duration plans in DB
     higher_plans = [p for p in plans_raw if p.months > current_db_plan.months]
-    higher_plans.sort(key=lambda x: (getattr(x, "savePercent", 0), x.months), reverse=True)
 
     # 5. Evaluate deterministic growth policy
     policy_decision, eligible, recommended_db_plan = evaluate_growth_policy(
@@ -217,8 +233,13 @@ async def evaluate_upsell(
         reason_text = fallback_reason
         ai_generated = False
 
+    # 0. Generate unique correlation token for audit trail
+    import uuid
+    eval_id = f"eval_{uuid.uuid4().hex[:12]}"
+
     # 9. Construct final enriched response
     response = UpsellEvaluateResponse(
+        eval_id=eval_id,
         eligible=True,
         usage_signals=usage_signals,
         policy=policy_decision,
@@ -233,10 +254,14 @@ async def evaluate_upsell(
     # 10. Record enriched audit log entry for UPSELL_RECOMMENDED
     try:
         audit_metadata = {
+            "eval_id": eval_id,
             "current_plan_id": current_plan_info.plan_id,
             "current_plan_price": current_plan_info.price,
+            "current_plan_name": current_plan_info.name,
             "recommended_plan_id": recommended_plan_info.plan_id,
             "recommended_plan_price": recommended_plan_info.price,
+            "recommended_plan_name": recommended_plan_info.name,
+            "recommended_plan_months": recommended_plan_info.months,
             "savings_percent": savings_percent,
             "ai_generated": ai_generated,
             "reason": reason_text,
@@ -307,6 +332,7 @@ async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAccep
             action="UPSELL_ACCEPTED",
             metadata={
                 "user_id": user.id,
+                "eval_id": payload.eval_id or "",
                 "current_plan_id": current_plan_info.plan_id,
                 "recommended_plan_id": rec_plan_info.plan_id,
                 "server_calculated_amount": amount,
@@ -333,6 +359,7 @@ async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAccep
                 "plan_id": rec_plan_info.plan_id,
                 "current_plan_id": current_plan_info.plan_id,
                 "coupon_code": payload.coupon_code or "",
+                "eval_id": payload.eval_id or "",
                 "source": "ai_upsell",
                 "feature": "feature_2",
             },
@@ -346,6 +373,7 @@ async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAccep
             action="UPSELL_ORDER_CREATED",
             metadata={
                 "user_id": user.id,
+                "eval_id": payload.eval_id or "",
                 "recommended_plan_id": rec_plan_info.plan_id,
                 "order_id": order["id"],
                 "server_calculated_amount": amount,
@@ -365,3 +393,113 @@ async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAccep
         plan_name=rec_plan_info.name,
         source="ai_upsell",
     )
+
+
+async def get_audit_trail(user: User) -> AIAuditTrailResponse:
+    """Fetch structured, append-only AI decision audit records correlated for the member."""
+    # Query database audit log entries for this user
+    raw_entries = await prisma.auditlogentry.find_many(
+        where={
+            "actorId": user.id,
+            "action": {"in": ["UPSELL_RECOMMENDED", "UPSELL_ACCEPTED", "UPSELL_ORDER_CREATED", "UPSELL_VERIFIED"]},
+        },
+        order={"createdAt": "desc"},
+    )
+
+    # Group entries by eval_id or recommendation event
+    recommendations: dict[str, dict[str, Any]] = {}
+    accepted_evals = set()
+    order_created_map = {}
+    verified_orders = set()
+
+    for entry in raw_entries:
+        meta = entry.metadata if isinstance(entry.metadata, dict) else {}
+        action = entry.action
+
+        if action == "UPSELL_ACCEPTED":
+            eid = meta.get("eval_id")
+            if eid:
+                accepted_evals.add(eid)
+        elif action == "UPSELL_ORDER_CREATED":
+            eid = meta.get("eval_id")
+            oid = meta.get("order_id")
+            if eid:
+                order_created_map[eid] = oid
+        elif action == "UPSELL_VERIFIED":
+            oid = meta.get("razorpay_order_id")
+            if oid:
+                verified_orders.add(oid)
+        elif action == "UPSELL_RECOMMENDED":
+            eid = meta.get("eval_id") or str(entry.id)
+            if eid not in recommendations:
+                recommendations[eid] = {
+                    "entry": entry,
+                    "metadata": meta,
+                }
+
+    records: list[AIAuditRecord] = []
+    for eid, data in recommendations.items():
+        entry = data["entry"]
+        meta = data["metadata"]
+
+        is_accepted = eid in accepted_evals
+        order_id = order_created_map.get(eid)
+        is_initiated = order_id is not None
+        is_completed = order_id in verified_orders if order_id else False
+
+        status = "pending"
+        if is_completed:
+            status = "completed"
+        elif is_initiated:
+            status = "initiated"
+        elif is_accepted:
+            status = "accepted"
+
+        curr_info = None
+        if meta.get("current_plan_id"):
+            curr_info = UpsellPlanInfo(
+                plan_id=meta.get("current_plan_id", "1m"),
+                name=meta.get("current_plan_name", "1 Month Membership"),
+                months=1,
+                price=meta.get("current_plan_price", 999),
+            )
+
+        rec_info = None
+        if meta.get("recommended_plan_id"):
+            rec_info = UpsellPlanInfo(
+                plan_id=meta.get("recommended_plan_id", "12m"),
+                name=meta.get("recommended_plan_name", "12 Month Membership"),
+                months=meta.get("recommended_plan_months", 12),
+                price=meta.get("recommended_plan_price", 8991),
+                save_percent=meta.get("savings_percent", 25),
+            )
+
+        signals_data = meta.get("usage_signals") or {}
+        signals = MemberUsageSignals(
+            total_loans=signals_data.get("total_loans", 0),
+            active_loans=signals_data.get("active_loans", 0),
+            total_visits=signals_data.get("total_visits", 0),
+        )
+
+        records.append(
+            AIAuditRecord(
+                audit_id=str(entry.id),
+                eval_id=eid,
+                timestamp=entry.createdAt.isoformat(),
+                current_plan=curr_info,
+                recommended_plan=rec_info,
+                usage_signals=signals,
+                decision=meta.get("policy_decision", "recommend"),
+                reason_code=meta.get("policy_reason_code", "high_usage"),
+                explanation=meta.get("reason", "Active library usage makes a longer membership more cost-effective."),
+                savings_amount=(rec_info.price - curr_info.price) if (rec_info and curr_info) else None,
+                savings_percent=meta.get("savings_percent", 25),
+                accepted=is_accepted,
+                payment_initiated=is_initiated,
+                payment_status=status,
+                order_id=order_id,
+            )
+        )
+
+    return AIAuditTrailResponse(records=records)
+

@@ -13,6 +13,7 @@ export interface UpsellEvaluateRequest {
 }
 
 export interface UpsellEvaluateResponse {
+  eval_id?: string;
   eligible: boolean;
   current_plan?: UpsellPlanInfo | null;
   recommended_plan?: UpsellPlanInfo | null;
@@ -26,6 +27,7 @@ export interface UpsellAcceptRequest {
   recommended_plan_id: string;
   current_plan_id: string;
   coupon_code?: string;
+  eval_id?: string;
 }
 
 export interface UpsellAcceptResponse {
@@ -37,3 +39,32 @@ export interface UpsellAcceptResponse {
   plan_name: string;
   source: string;
 }
+
+export interface MemberUsageSignals {
+  total_loans: number;
+  active_loans: number;
+  total_visits: number;
+}
+
+export interface AIAuditRecord {
+  audit_id: string;
+  eval_id: string;
+  timestamp: string;
+  current_plan?: UpsellPlanInfo | null;
+  recommended_plan?: UpsellPlanInfo | null;
+  usage_signals?: MemberUsageSignals | null;
+  decision: string;
+  reason_code: string;
+  explanation: string;
+  savings_amount?: number | null;
+  savings_percent?: number | null;
+  accepted: boolean;
+  payment_initiated: boolean;
+  payment_status: 'pending' | 'accepted' | 'initiated' | 'completed';
+  order_id?: string | null;
+}
+
+export interface AIAuditTrailResponse {
+  records: AIAuditRecord[];
+}
+

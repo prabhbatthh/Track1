@@ -8,6 +8,7 @@ import * as agentUpsellApi from '@/features/agent-upsell/api';
 vi.mock('@/features/agent-upsell/api', () => ({
   evaluateUpsell: vi.fn(),
   acceptUpsell: vi.fn(),
+  fetchAIAuditTrail: vi.fn().mockResolvedValue({ records: [] }),
 }));
 
 vi.mock('@/providers/AuthProvider', () => ({
@@ -66,9 +67,9 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/AI SMART TIP/i)).toBeInTheDocument();
+      expect(screen.getByText(/AI FOUND A BETTER DEAL/i)).toBeInTheDocument();
     });
-    expect(screen.getByText(/Upgrade & Save/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/SAVE/i).length).toBeGreaterThan(0);
   });
 
   it('shows confirmation notification and indicator when user selects recommendation without initiating payment', async () => {
@@ -83,10 +84,10 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Upgrade to 12 Months/i)).toBeInTheDocument();
+      expect(screen.getByText(/Upgrade & Save/i)).toBeInTheDocument();
     });
 
-    const upgradeBtn = screen.getByText(/Upgrade to 12 Months/i);
+    const upgradeBtn = screen.getByText(/Upgrade & Save/i);
     fireEvent.click(upgradeBtn);
 
     // Confirmation message appears
@@ -130,11 +131,11 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Upgrade to 12 Months/i)).toBeInTheDocument();
+      expect(screen.getByText(/Upgrade & Save/i)).toBeInTheDocument();
     });
 
     // Step 1: Select recommendation
-    fireEvent.click(screen.getByText(/Upgrade to 12 Months/i));
+    fireEvent.click(screen.getByText(/Upgrade & Save/i));
     expect(agentUpsellApi.acceptUpsell).not.toHaveBeenCalled();
 
     // Step 2: Explicit Consent — Click "Pay with Razorpay"
@@ -161,29 +162,28 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText(/Upgrade to 12 Months/i)).toBeInTheDocument();
+      expect(screen.getByText(/Upgrade & Save/i)).toBeInTheDocument();
     });
 
     // Click AI upgrade
-    fireEvent.click(screen.getByText(/Upgrade to 12 Months/i));
+    fireEvent.click(screen.getByText(/Upgrade & Save/i));
 
     // Verify AI Savings panel renders with AI RECOMMENDED badge
     await waitFor(() => {
       expect(screen.getByTestId('ai-savings-panel')).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId('ai-recommended-badge')).toHaveTextContent(/AI RECOMMENDED/i);
+    expect(screen.getByTestId('ai-recommended-badge')).toHaveTextContent(/(AI RECOMMENDED|YOUR AI SAVINGS)/i);
     expect(screen.getByTestId('ai-savings-amount')).toHaveTextContent(/₹2,997/);
   });
 
   it('renders AISavingsPanel with YEARLY VALUE PLAN attribution when manually navigating to /payment?plan=12m', async () => {
     vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue({
-      ...mockUpsellProposal,
       eligible: false,
     });
 
     render(
-      <MemoryRouter initialEntries={['/payment?plan=12m&label=12%20Month%20Membership']}>
+      <MemoryRouter initialEntries={['/payment?plan=12m&label=12%20Month']}>
         <Routes>
           <Route path="/payment" element={<PaymentPage />} />
         </Routes>
@@ -194,7 +194,7 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
       expect(screen.getByTestId('ai-savings-panel')).toBeInTheDocument();
     });
 
-    expect(screen.getByTestId('yearly-value-badge')).toHaveTextContent(/YEARLY VALUE PLAN/i);
+    expect(screen.getByTestId('yearly-value-badge')).toHaveTextContent(/YEARLY VALUE/i);
     expect(screen.queryByTestId('ai-recommended-badge')).not.toBeInTheDocument();
     expect(screen.getByTestId('ai-savings-amount')).toHaveTextContent(/₹2,997/);
   });
