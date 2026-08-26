@@ -558,14 +558,22 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
             logger.error("Failed to record GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED audit log: %s", exc)
 
     # Update policy record snapshot in database
-    await prisma.guardianautopaypolicy.update(
-        where={"id": policy_record.id},
-        data={
-            "currentTrustTier": trust_result.tier,
-            "effectiveTransactionCap": effective_cap,
-            "lastTrustScoreUpdatedAt": now,
-        },
-    )
+    try:
+        await prisma.guardianautopaypolicy.update(
+            where={"id": policy_record.id},
+            data={
+                "currentTrustTier": trust_result.tier,
+                "effectiveTransactionCap": effective_cap,
+                "lastTrustScoreUpdatedAt": now,
+            },
+        )
+    except Exception as exc:
+        if "Unique constraint" in str(exc) or "database is locked" in str(exc).lower():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Autonomous payment transaction already in progress or completed",
+            )
+        raise
 
     # 5. Re-evaluate policy strictly using effective_cap before autonomous capture
     effective_policy = AutopayPolicyOut(
@@ -651,6 +659,27 @@ async def execute_autonomous_autopay(loan_id: str) -> AutopayAutonomousResponse:
         raise
     except Exception as exc:
         logger.error("Autonomous gateway payment capture failed: %s", exc)
+        child_name = loan.member.fullName if (loan.member and loan.member.fullName) else "your child"
+        try:
+            await audit_log_service.record(
+                actor_id=link.guardianId,
+                action="GUARDIAN_AUTOPAY_AUTONOMOUS_FAILED",
+                metadata={
+                    "guardian_id": link.guardianId,
+                    "child_id": loan.memberId,
+                    "child_name": child_name,
+                    "loan_id": loan.id,
+                    "amount": authoritative_amount,
+                    "trust_tier": trust_result.tier,
+                    "effective_transaction_cap": effective_cap,
+                    "monthly_spending_cap": base_policy_out.monthly_spending_cap,
+                    "failure_reason": str(exc),
+                    "settlement_type": "autonomous_simulated",
+                },
+            )
+        except Exception as audit_exc:
+            logger.error("Failed to record GUARDIAN_AUTOPAY_AUTONOMOUS_FAILED audit: %s", audit_exc)
+
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail=f"Autonomous payment capture failed: {exc}",

@@ -419,7 +419,7 @@ async def test_execute_autonomous_autopay_concurrent_race_condition():
     )
 
     successes = [r for r in results if not isinstance(r, Exception)]
-    conflicts = [r for r in results if isinstance(r, HTTPException) and r.status_code == 409]
+    conflicts = [r for r in results if getattr(r, "status_code", None) == 409]
 
     # Exactly 1 request succeeds, exactly 1 request gets HTTP 409 Conflict
     assert len(successes) == 1
@@ -615,10 +615,19 @@ async def test_execute_autonomous_autopay_gateway_failure_rollback_and_retry():
     post_fail_payment_count = await prisma.payment.count(where={"userId": child.id})
     assert post_fail_payment_count == initial_payment_count
 
-    failed_audits = await prisma.auditlogentry.find_many(
+    failed_executed_audits = await prisma.auditlogentry.find_many(
         where={"actorId": guardian.id, "action": "GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED"}
     )
-    assert len(failed_audits) == 0
+    assert len(failed_executed_audits) == 0
+
+    # Verify GUARDIAN_AUTOPAY_AUTONOMOUS_FAILED audit log recorded
+    failed_audits = await prisma.auditlogentry.find_many(
+        where={"actorId": guardian.id, "action": "GUARDIAN_AUTOPAY_AUTONOMOUS_FAILED"}
+    )
+    assert len(failed_audits) == 1
+    assert failed_audits[0].metadata["amount"] == 150
+    assert failed_audits[0].metadata["settlement_type"] == "autonomous_simulated"
+    assert "Simulated payment gateway processing error" in failed_audits[0].metadata["failure_reason"]
 
     # 2. Retry autonomous execution without forced failure
     res_retry = await execute_autonomous_autopay(loan.id)
