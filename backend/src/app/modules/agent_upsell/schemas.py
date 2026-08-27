@@ -46,6 +46,16 @@ class UpsellEvaluateResponse(BaseModel):
     ai_generated: bool = False
 
 
+class AIFineSavingsEvaluateResponse(BaseModel):
+    eligible: bool
+    fine_amount: int
+    discount_percent: int = 0
+    savings_amount: int = 0
+    discounted_amount: int = 0
+    coupon_code: Optional[str] = None
+    rationale: Optional[str] = None
+
+
 class UpsellAcceptRequest(BaseModel):
     recommended_plan_id: str = Field(..., description="ID of recommended plan (e.g. '12m')")
     current_plan_id: str = Field(..., description="ID of current plan (e.g. '1m', '3m')")

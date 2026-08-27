@@ -1,4 +1,6 @@
 import os
+import uuid
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, patch
 import pytest
 import pytest_asyncio
@@ -390,7 +392,10 @@ async def test_accept_agent_upsell_valid():
     mock_rz_client = MagicMock()
     mock_rz_client.order.create.return_value = {"id": "order_test_upsell_123"}
 
-    with patch("app.modules.payments.service._get_client", return_value=mock_rz_client):
+    with patch("app.modules.payments.service._get_client", return_value=mock_rz_client), \
+         patch("app.modules.agent_upsell.service.get_settings") as mock_settings:
+        mock_settings.return_value.payment_gateway_mode = "razorpay"
+        mock_settings.return_value.razorpay_key_id = "rzp_test_mock"
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -430,7 +435,10 @@ async def test_accept_agent_upsell_fake_amount_ignored():
     mock_rz_client = MagicMock()
     mock_rz_client.order.create.return_value = {"id": "order_test_fake_amount"}
 
-    with patch("app.modules.payments.service._get_client", return_value=mock_rz_client):
+    with patch("app.modules.payments.service._get_client", return_value=mock_rz_client), \
+         patch("app.modules.agent_upsell.service.get_settings") as mock_settings:
+        mock_settings.return_value.payment_gateway_mode = "razorpay"
+        mock_settings.return_value.razorpay_key_id = "rzp_test_mock"
         async with AsyncClient(
             transport=ASGITransport(app=app), base_url="http://test"
         ) as client:
@@ -489,3 +497,181 @@ async def test_accept_agent_upsell_invalid_plan():
         )
         assert response.status_code == 400
         assert "not available or inactive" in response.json()["detail"].lower()
+
+
+@pytest.mark.asyncio
+async def test_audit_trail_includes_completed_agent_checkout_proposal():
+    """Test GET /api/v1/agent/upsell/audit recognizes completed AgentCheckoutProposals as completed savings."""
+    user, token = await get_test_user_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    with patch("app.modules.agent_upsell.service.get_settings") as mock_settings, \
+         patch("app.modules.payments.service.get_settings") as mock_pay_settings:
+        mock_settings.return_value.payment_gateway_mode = "demo"
+        mock_settings.return_value.razorpay_key_id = "rzp_demo_key"
+        mock_pay_settings.return_value.payment_gateway_mode = "demo"
+        mock_pay_settings.return_value.razorpay_key_id = "rzp_demo_key"
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # Step 1: Create checkout proposal
+            prop_res = await client.post(
+                "/api/v1/agent/checkout/proposal",
+                headers=headers,
+                json={"plan_id": "12m"},
+            )
+            assert prop_res.status_code == 200
+            prop_data = prop_res.json()
+            proposal_id = prop_data["proposal_id"]
+            savings_amount = prop_data["savings_amount"]
+
+            # Step 2: Approve checkout proposal
+            app_res = await client.post(
+                "/api/v1/agent/checkout/approve",
+                headers=headers,
+                json={"proposal_id": proposal_id},
+            )
+            assert app_res.status_code == 200
+            order_id = app_res.json()["order_id"]
+
+            # Step 3: Verify payment
+            verify_res = await client.post(
+                "/api/v1/payments/razorpay/verify",
+                headers=headers,
+                json={
+                    "razorpay_order_id": order_id,
+                    "razorpay_payment_id": f"pay_{uuid.uuid4().hex[:12]}",
+                    "razorpay_signature": "demo_signature_valid",
+                },
+            )
+            assert verify_res.status_code == 200
+
+            # Step 4: Fetch AI audit trail
+            audit_res = await client.get("/api/v1/agent/upsell/audit", headers=headers)
+            assert audit_res.status_code == 200
+            records = audit_res.json()["records"]
+
+            completed_records = [
+                r for r in records if r["payment_status"] == "completed" and r["accepted"] is True
+            ]
+            assert len(completed_records) >= 1
+            matched_rec = next((r for r in completed_records if r["order_id"] == order_id), completed_records[0])
+            assert matched_rec["accepted"] is True
+            assert matched_rec["payment_status"] == "completed"
+
+
+@pytest.mark.asyncio
+async def test_evaluate_fine_savings_endpoint():
+    """Test POST /api/v1/agent/fine-savings/evaluate returns server-authoritative coupon savings."""
+    user, token = await get_test_user_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Ensure a coupon exists
+    from app.modules.coupons import service as coupons_service
+    from app.modules.coupons.schemas import CouponCreate
+    admin = await prisma.user.find_first(where={"role": {"name": "ADMIN"}})
+    admin_id = admin.id if admin else user.id
+
+    try:
+        await coupons_service.generate_coupon(
+            admin_id, CouponCreate(code="TESTFINE10", discount_percent=10, max_uses=100)
+        )
+    except Exception:
+        pass
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        res = await client.post("/api/v1/agent/fine-savings/evaluate", headers=headers)
+        assert res.status_code == 200
+        data = res.json()
+        assert "eligible" in data
+        assert "fine_amount" in data
+        assert "discount_percent" in data
+
+
+@pytest.mark.asyncio
+async def test_fine_payment_with_ai_coupon_full_e2e():
+    """Test full e2e fine payment flow with AI-applied coupon settles full fine and emits audit log."""
+    user, token = await get_test_user_and_token()
+    headers = {"Authorization": f"Bearer {token}"}
+
+    # Create an overdue loan for user with fine 400
+    book = await prisma.book.find_first()
+    if not book:
+        book = await prisma.book.create(
+            data={
+                "title": "Test Fine Book",
+                "author": "Author",
+                "isbn": f"978{uuid.uuid4().hex[:10]}",
+                "category": "Fiction",
+                "copies": 5,
+            }
+        )
+    loan = await prisma.loan.create(
+        data={
+            "memberId": user.id,
+            "bookId": book.id,
+            "createdById": user.id,
+            "dueDate": datetime.now(UTC) - timedelta(days=8),
+            "finePaid": False,
+        }
+    )
+
+    with patch("app.modules.agent_upsell.service.get_settings") as mock_settings, \
+         patch("app.modules.payments.service.get_settings") as mock_pay_settings:
+        mock_settings.return_value.payment_gateway_mode = "demo"
+        mock_settings.return_value.razorpay_key_id = "rzp_demo_key"
+        mock_pay_settings.return_value.payment_gateway_mode = "demo"
+        mock_pay_settings.return_value.razorpay_key_id = "rzp_demo_key"
+
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            # 1. Evaluate fine savings
+            eval_res = await client.post("/api/v1/agent/fine-savings/evaluate", headers=headers)
+            assert eval_res.status_code == 200
+            eval_data = eval_res.json()
+            assert eval_data["eligible"] is True
+            coupon_code = eval_data["coupon_code"]
+            assert coupon_code is not None
+
+            # 2. Create Razorpay order with coupon
+            order_res = await client.post(
+                "/api/v1/payments/razorpay/order",
+                headers=headers,
+                json={
+                    "amount": 400,
+                    "label": "Fine owed: ₹400",
+                    "plan_months": None,
+                    "coupon_code": coupon_code,
+                },
+            )
+            assert order_res.status_code == 201
+            order_data = order_res.json()
+            order_id = order_data["order_id"]
+            # Amount should match server-evaluated discounted_amount
+            assert order_data["amount"] == eval_data["discounted_amount"]
+
+            # 3. Verify payment
+            verify_res = await client.post(
+                "/api/v1/payments/razorpay/verify",
+                headers=headers,
+                json={
+                    "razorpay_order_id": order_id,
+                    "razorpay_payment_id": f"pay_{uuid.uuid4().hex[:12]}",
+                    "razorpay_signature": "demo_signature_valid",
+                },
+            )
+            assert verify_res.status_code == 200
+
+            # 4. Verify loan fine is marked paid in DB
+            updated_loan = await prisma.loan.find_unique(where={"id": loan.id})
+            assert updated_loan is not None
+            assert updated_loan.finePaid is True
+
+            # 5. Verify audit trail contains AI_FINE_SAVINGS_VERIFIED record
+            audit_res = await client.get("/api/v1/agent/upsell/audit", headers=headers)
+            assert audit_res.status_code == 200
+            audit_records = audit_res.json()["records"]
+            fine_records = [
+                r for r in audit_records if r.get("reason_code") == "fine_discount" and r["accepted"] is True
+            ]
+            assert len(fine_records) >= 1
+            matched_rec = fine_records[0]
+            assert matched_rec["order_id"] == order_id

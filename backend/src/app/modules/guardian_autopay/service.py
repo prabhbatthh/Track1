@@ -9,6 +9,8 @@ from app.db.prisma import prisma
 from app.modules.audit_log import service as audit_log_service
 from app.modules.guardian import service as guardian_service
 from app.modules.guardian_autopay.schemas import (
+    AutopayActivityItemOut,
+    AutopayActivityResponse,
     AutopayApproveRequest,
     AutopayApproveResponse,
     AutopayAutonomousResponse,
@@ -38,6 +40,14 @@ async def _get_link_or_none(guardian_id: str, child_id: str):
     return await prisma.guardianlink.find_first(
         where={"guardianId": guardian_id, "memberId": child_id}
     )
+
+
+async def get_guardian_active_policy(guardian_id: str) -> Optional[AutopayPolicyOut]:
+    """Retrieve active Auto-Pay policy for the authenticated guardian."""
+    children = await guardian_service.list_my_children(guardian_id)
+    if not children:
+        return None
+    return await get_or_create_policy(guardian_id, children[0].id)
 
 
 async def get_or_create_policy(guardian_id: str, child_id: str) -> AutopayPolicyOut:
@@ -799,8 +809,8 @@ async def execute_autonomous_autopay(
     )
 
 
-async def get_or_create_demo_loans(guardian_id: str):
-    """Retrieve or create deterministic fine loans for Guardian Auto-Pay demo UI."""
+async def get_demo_loans(guardian_id: str):
+    """Retrieve fine loans for Guardian Auto-Pay demo UI without creating records (READ-ONLY)."""
     from datetime import timedelta
     from app.modules.guardian_autopay.schemas import AutopayDemoLoansResponse
 
@@ -818,7 +828,53 @@ async def get_or_create_demo_loans(guardian_id: str):
     child_name = link.member.fullName if (link.member and link.member.fullName) else "Child Member"
     policy = await get_or_create_policy(guardian_id, child_id)
 
-    # Book for fine loans
+    now = datetime.now(UTC)
+    unpaid_loans = await prisma.loan.find_many(
+        where={"memberId": child_id, "finePaid": False, "returnedAt": None}
+    )
+
+    within_cap_loan = None
+    over_cap_loan = None
+
+    for loan in unpaid_loans:
+        days_late = max(0, (now.date() - loan.dueDate.date()).days)
+        amt = days_late * 50
+        if amt > 0 and amt <= policy.per_transaction_cap and within_cap_loan is None:
+            within_cap_loan = loan
+        elif amt > policy.per_transaction_cap and over_cap_loan is None:
+            over_cap_loan = loan
+
+    return AutopayDemoLoansResponse(
+        within_cap_loan_id=within_cap_loan.id if within_cap_loan else "demo-loan-within-150",
+        within_cap_amount=150,
+        over_cap_loan_id=over_cap_loan.id if over_cap_loan else "demo-loan-over-250",
+        over_cap_amount=250,
+        child_id=child_id,
+        child_name=child_name,
+        per_transaction_cap=policy.per_transaction_cap,
+        monthly_spending_cap=policy.monthly_spending_cap,
+    )
+
+
+async def reset_demo_loans(guardian_id: str):
+    """Explicit user action to create or reset deterministic fine loans for Guardian Auto-Pay demo UI."""
+    from datetime import timedelta
+    from app.modules.guardian_autopay.schemas import AutopayDemoLoansResponse
+
+    link = await prisma.guardianlink.find_first(
+        where={"guardianId": guardian_id},
+        include={"member": True},
+    )
+    if link is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked child account found for this guardian",
+        )
+
+    child_id = link.memberId
+    child_name = link.member.fullName if (link.member and link.member.fullName) else "Child Member"
+    policy = await get_or_create_policy(guardian_id, child_id)
+
     book = await prisma.book.find_first()
     if not book:
         book = await prisma.book.create(
@@ -829,7 +885,6 @@ async def get_or_create_demo_loans(guardian_id: str):
     due_3_days_ago = now - timedelta(days=3)
     due_5_days_ago = now - timedelta(days=5)
 
-    # Find or create 3-day overdue loan (3 days @ ₹50 = ₹150) and 5-day overdue loan (5 days @ ₹50 = ₹250)
     unpaid_loans = await prisma.loan.find_many(
         where={"memberId": child_id, "finePaid": False, "returnedAt": None}
     )
@@ -877,6 +932,10 @@ async def get_or_create_demo_loans(guardian_id: str):
         per_transaction_cap=policy.per_transaction_cap,
         monthly_spending_cap=policy.monthly_spending_cap,
     )
+
+
+get_or_create_demo_loans = get_demo_loans
+
 
 
 async def get_trust_status(guardian_id: str):
@@ -1036,6 +1095,88 @@ async def simulate_trust_history(guardian_id: str, action: str):
             logger.error("Failed to record GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED audit log: %s", exc)
 
     return await get_trust_status(guardian_id)
+
+
+async def get_activity_history(guardian_id: str) -> AutopayActivityResponse:
+    """Retrieve formatted activity history for Guardian Auto-Pay UI (READ-ONLY)."""
+    children = await guardian_service.list_my_children(guardian_id)
+    child_map = {c.id: getattr(c, 'full_name', getattr(c, 'fullName', 'Child')) for c in children}
+    child_ids = set(child_map.keys())
+
+    entries = await prisma.auditlogentry.find_many(
+        where={
+            "action": {
+                "in": [
+                    "GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED",
+                    "GUARDIAN_AUTOPAY_BLOCKED_OVERCAP",
+                    "GUARDIAN_AUTOPAY_VERIFIED",
+                ]
+            },
+            "OR": [
+                {"actorId": guardian_id},
+                {"actorId": {"in": list(child_ids)}} if child_ids else {"actorId": "none"},
+            ],
+        },
+        order={"createdAt": "desc"},
+        take=20,
+    )
+
+    activity_items: list[AutopayActivityItemOut] = []
+    for entry in entries:
+        meta = entry.metadata if isinstance(entry.metadata, dict) else {}
+        g_id = str(meta.get("guardian_id") or "")
+        c_id = str(meta.get("child_id") or meta.get("member_id") or "")
+
+        if entry.actorId != guardian_id and g_id != guardian_id and c_id not in child_ids:
+            continue
+
+        c_name = child_map.get(c_id) or meta.get("child_name") or "Child"
+        amount = int(meta.get("amount") or 0)
+        cap = meta.get("per_transaction_cap") or meta.get("effective_cap") or meta.get("cap") or 200
+
+        timestamp = entry.createdAt.isoformat() if entry.createdAt else datetime.now(UTC).isoformat()
+
+        if entry.action == "GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED":
+            activity_items.append(
+                AutopayActivityItemOut(
+                    id=entry.id,
+                    type="autonomous_paid",
+                    title="Automatically paid",
+                    badge="AI Auto-Pay",
+                    description="Paid via AI Auto-Pay",
+                    amount=amount,
+                    child_name=c_name,
+                    timestamp=timestamp,
+                )
+            )
+        elif entry.action == "GUARDIAN_AUTOPAY_VERIFIED":
+            activity_items.append(
+                AutopayActivityItemOut(
+                    id=entry.id,
+                    type="guardian_approved",
+                    title="Guardian approved payment",
+                    badge="Manual approval",
+                    description="Paid after AI limit review",
+                    amount=amount,
+                    child_name=c_name,
+                    timestamp=timestamp,
+                )
+            )
+        elif entry.action == "GUARDIAN_AUTOPAY_BLOCKED_OVERCAP":
+            activity_items.append(
+                AutopayActivityItemOut(
+                    id=entry.id,
+                    type="blocked",
+                    title="Payment blocked",
+                    badge="Blocked & Notified",
+                    description=f"Exceeded ₹{cap} Auto-Pay limit · Guardian notified",
+                    amount=amount,
+                    child_name=c_name,
+                    timestamp=timestamp,
+                )
+            )
+
+    return AutopayActivityResponse(items=activity_items)
 
 
 

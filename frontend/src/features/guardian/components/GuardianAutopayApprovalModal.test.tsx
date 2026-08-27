@@ -27,9 +27,13 @@ vi.mock('../api', () => ({
   }),
 }));
 
-vi.mock('@/lib/razorpay', () => ({
-  loadRazorpayCheckout: vi.fn(),
-}));
+vi.mock('@/lib/razorpay', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/razorpay')>();
+  return {
+    ...actual,
+    loadRazorpayCheckout: vi.fn(),
+  };
+});
 
 describe('GuardianAutopayApprovalModal — Explicit Consent Gate', () => {
   beforeEach(() => {

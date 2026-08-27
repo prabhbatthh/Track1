@@ -70,6 +70,7 @@ export interface PaymentPayload {
   label: string;
   plan_months?: number;
   coupon_code?: string;
+  child_id?: string;
 }
 
 export interface PaymentRecord {

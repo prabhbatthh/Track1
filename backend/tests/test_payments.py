@@ -28,6 +28,7 @@ def _unique_email() -> str:
 
 @pytest_asyncio.fixture(scope="module", autouse=True)
 async def _db_connection():
+    get_settings().payment_gateway_mode = "razorpay"
     await prisma.connect()
     yield
     domain_filter = {"email": {"endswith": TEST_EMAIL_DOMAIN}}

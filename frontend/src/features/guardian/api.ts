@@ -82,6 +82,10 @@ export async function getAutopayDemoLoans(token?: string): Promise<AutopayDemoLo
   return apiGet<AutopayDemoLoansResponse>('/guardian/autopay/demo-loans', token);
 }
 
+export async function resetAutopayDemoLoans(token?: string): Promise<AutopayDemoLoansResponse> {
+  return apiPost<AutopayDemoLoansResponse>('/guardian/autopay/demo-loans/reset', undefined, token);
+}
+
 export interface AutopayTrustStatus {
   child_id: string;
   child_name: string;
@@ -111,6 +115,25 @@ export async function simulateAutopayTrustHistory(
     { action },
     token
   );
+}
+
+export interface AutopayActivityItem {
+  id: string;
+  type: 'autonomous_paid' | 'guardian_approved' | 'blocked';
+  title: string;
+  badge: string;
+  description: string;
+  amount: number;
+  child_name: string;
+  timestamp: string;
+}
+
+export interface AutopayActivityResponse {
+  items: AutopayActivityItem[];
+}
+
+export async function getAutopayActivityHistory(token?: string): Promise<AutopayActivityResponse> {
+  return apiGet<AutopayActivityResponse>('/guardian/autopay/activity', token);
 }
 
 

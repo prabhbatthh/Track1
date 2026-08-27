@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Button, Modal } from '@/components/ui';
 import { apiPost, getErrorMessage } from '@/lib/api';
 import { formatCurrency } from '@/lib/format';
-import { loadRazorpayCheckout, type RazorpayPaymentResponse } from '@/lib/razorpay';
+import { createRazorpayCheckout, isDemoOrder, loadRazorpayCheckout, type RazorpayPaymentResponse } from '@/lib/razorpay';
 import type { GuardianChild } from '@/providers/AuthProvider';
 
 import { approveAutopayCharge, getAutopayPolicy, updateAutopayPolicy, type AutopayPolicy } from '../api';
@@ -77,21 +77,23 @@ export function GuardianAutopayApprovalModal({
     setIsApproving(true);
 
     try {
-      const scriptLoaded = await loadRazorpayCheckout();
-      if (!scriptLoaded || !window.Razorpay) {
-        toast.error('Failed to load payment checkout SDK');
-        setIsApproving(false);
-        return;
-      }
-
       // 1. Call server-authoritative approval endpoint (CONSENT GATE)
       const approval = await approveAutopayCharge({
         member_id: child.id,
         charge_id: chargeId || child.id,
       });
 
+      if (!isDemoOrder({ key: approval.key_id, order_id: approval.razorpay_order_id })) {
+        const scriptLoaded = await loadRazorpayCheckout();
+        if (!scriptLoaded || !window.Razorpay) {
+          toast.error('Failed to load payment checkout SDK');
+          setIsApproving(false);
+          return;
+        }
+      }
+
       // 2. Open Razorpay checkout popup ONLY after server approval
-      const checkout = new window.Razorpay({
+      const checkout = createRazorpayCheckout({
         key: approval.key_id,
         amount: approval.amount * 100, // paise
         currency: approval.currency,

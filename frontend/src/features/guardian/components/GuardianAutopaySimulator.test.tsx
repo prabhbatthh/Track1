@@ -5,6 +5,25 @@ import * as guardianApi from '../api';
 import { GuardianAutopaySimulator } from './GuardianAutopaySimulator';
 import * as razorpayLib from '@/lib/razorpay';
 
+const mockNavigate = vi.fn();
+vi.mock('react-router-dom', async () => {
+  const actual = await vi.importActual('react-router-dom');
+  return {
+    ...actual,
+    useNavigate: () => mockNavigate,
+  };
+});
+
+const mockGetGuardianChildren = vi.fn().mockResolvedValue([
+  { id: 'child_123', full_name: 'Saanvi Bose', outstanding_fine: 400 }
+]);
+
+vi.mock('@/providers/AuthProvider', () => ({
+  useAuth: () => ({
+    getGuardianChildren: mockGetGuardianChildren,
+  }),
+}));
+
 vi.mock('../api', () => ({
   getAutopayDemoLoans: vi.fn().mockResolvedValue({
     within_cap_loan_id: 'loan_within_150',
@@ -28,7 +47,7 @@ vi.mock('../api', () => ({
     guardian_per_transaction_cap: 200,
     theoretical_cap: 200,
     effective_transaction_cap: 200,
-    reasoning: '12 of the last 15 returned books were on time (80%). Trust tier: BASELINE. Multiplier: 1.0x. Effective cap remains ₹200.',
+    reasoning: '12 of the last 15 returned books were on time (80%). Safe baseline limit applied based on borrowing track record.',
   }),
   simulateAutopayTrustHistory: vi.fn().mockResolvedValue({
     child_id: 'child_123',
@@ -46,163 +65,160 @@ vi.mock('../api', () => ({
   }),
   executeAutonomousAutopay: vi.fn(),
   approveAutopayCharge: vi.fn(),
+  updateAutopayPolicy: vi.fn(),
+  resetAutopayDemoLoans: vi.fn(),
+  getAutopayActivityHistory: vi.fn().mockResolvedValue({ items: [] }),
 }));
 
 vi.mock('@/lib/razorpay', () => ({
   loadRazorpayCheckout: vi.fn(),
 }));
 
-describe('GuardianAutopaySimulator — Trust Ladder & Autonomous Execution UI', () => {
+describe('GuardianAutopaySimulator — Production Guardian Control UI', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('1. Renders Trust Status card with linked child and baseline metrics', async () => {
+  it('1. Renders clean Guardian Header, linked child, spending limit cards, and why-this-limit callout', async () => {
     render(<GuardianAutopaySimulator />);
 
-    expect(await screen.findByText(/Self-Adjusting Trust Ladder/i)).toBeInTheDocument();
-    expect(await screen.findByText(/BASELINE TRUST \(1.0x\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/Why this cap\?/i)).toBeInTheDocument();
-    expect(screen.getByText(/12 of the last 15 returned books were on time/i)).toBeInTheDocument();
+    expect(await screen.findByText(/AI Guardian Auto-Pay/i)).toBeInTheDocument();
+    expect(screen.getByText(/Let AI handle eligible fines automatically while keeping you in control/i)).toBeInTheDocument();
+    expect(screen.getByText(/Diya Joshi/i)).toBeInTheDocument();
+    expect(screen.getByText(/Single Fine Limit/i)).toBeInTheDocument();
+    expect(screen.getByText(/Monthly Spending Limit/i)).toBeInTheDocument();
+    expect(screen.getByText(/Why this limit\?/i)).toBeInTheDocument();
   });
 
-  it('2. HIGH tier displays correct multiplier (1.2x), theoretical cap (₹240), and hard ceiling (₹200)', async () => {
+  it('1b. Displays "No returns yet" for Saanvi Bose when child has zero sample_size / return history', async () => {
+    vi.mocked(guardianApi.getAutopayDemoLoans).mockResolvedValueOnce({
+      within_cap_loan_id: 'loan_within_150',
+      within_cap_amount: 150,
+      over_cap_loan_id: 'loan_over_250',
+      over_cap_amount: 250,
+      child_id: 'child_123',
+      child_name: 'Saanvi Bose',
+      per_transaction_cap: 200,
+      monthly_spending_cap: 1000,
+    });
     vi.mocked(guardianApi.getAutopayTrustStatus).mockResolvedValueOnce({
       child_id: 'child_123',
-      child_name: 'Diya Joshi',
-      trust_tier: 'HIGH',
-      on_time_return_rate: 100.0,
-      on_time_returns: 15,
-      total_returns: 15,
-      sample_size: 15,
-      multiplier: 1.2,
+      child_name: 'Saanvi Bose',
+      trust_tier: 'BASELINE',
+      on_time_return_rate: 0,
+      on_time_returns: 0,
+      total_returns: 0,
+      sample_size: 0,
+      multiplier: 1.0,
       guardian_per_transaction_cap: 200,
-      theoretical_cap: 240,
+      theoretical_cap: 200,
       effective_transaction_cap: 200,
-      reasoning: '15 of the last 15 returned books were on time (100%). Trust tier: HIGH. Multiplier: 1.2x. Theoretical cap: ₹240. Guardian hard ceiling limits autonomous payments to ₹200.',
+      reasoning: 'No completed return history yet. BASELINE (1.0x) is applied as the safe starting default (not a penalty).',
     });
 
     render(<GuardianAutopaySimulator />);
 
-    expect(await screen.findByText(/HIGH TRUST \(1.2x\)/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/240/i).length).toBeGreaterThan(0);
-    expect(screen.getAllByText(/200/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Guardian hard ceiling limits autonomous payments to ₹200/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Saanvi Bose/i)).toBeInTheDocument();
+    expect(screen.getByText(/safe starting default/i)).toBeInTheDocument();
+
+    // Expand collapsible section to verify "No returns yet"
+    const accordionBtn = screen.getByRole('button', { name: /How AI Trust & Safety Works/i });
+    fireEvent.click(accordionBtn);
+
+    expect(await screen.findByText(/No returns yet/i)).toBeInTheDocument();
+    expect(screen.getByText(/BASELINE TRUST/i)).toBeInTheDocument();
   });
 
-  it('3. LOW tier displays reduced effective cap (₹140)', async () => {
-    vi.mocked(guardianApi.getAutopayTrustStatus).mockResolvedValueOnce({
-      child_id: 'child_123',
-      child_name: 'Diya Joshi',
-      trust_tier: 'LOW',
-      on_time_return_rate: 50.0,
-      on_time_returns: 5,
-      total_returns: 10,
-      sample_size: 10,
-      multiplier: 0.7,
-      guardian_per_transaction_cap: 200,
-      theoretical_cap: 140,
-      effective_transaction_cap: 140,
-      reasoning: '5 of the last 10 returned books were on time (50%). Trust tier: LOW. Multiplier: 0.7x. Effective cap reduced to ₹140.',
-    });
-
+  it('2. Renders "How Auto-Pay Protects You" rule summary cards', async () => {
     render(<GuardianAutopaySimulator />);
 
-    expect(await screen.findByText(/LOW TRUST \(0.7x\)/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/₹140/i).length).toBeGreaterThan(0);
-    expect(screen.getByText(/Effective cap reduced to ₹140/i)).toBeInTheDocument();
+    expect(await screen.findByText(/How Auto-Pay Protects You/i)).toBeInTheDocument();
+    expect(screen.getByText(/Within your limit/i)).toBeInTheDocument();
+    expect(screen.getByText(/Above your limit/i)).toBeInTheDocument();
   });
 
-  it('4. Simulate Late Return button calls backend endpoint rather than calculating locally', async () => {
+  it('3. Renders Recent Auto-Pay Activity feed section', async () => {
     render(<GuardianAutopaySimulator />);
 
-    const btnLate = await screen.findByRole('button', { name: /Simulate Late Return/i });
-    expect(btnLate).toBeInTheDocument();
-
-    fireEvent.click(btnLate);
-
-    await waitFor(() => {
-      expect(guardianApi.simulateAutopayTrustHistory).toHaveBeenCalledWith('simulate_late_return');
-    });
-
-    expect(await screen.findByText(/Trust Adjustment Audited: GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED/i)).toBeInTheDocument();
-    expect(screen.getByText(/Effective cap reduced from ₹200 → ₹140/i)).toBeInTheDocument();
+    expect(await screen.findByText(/Recent Auto-Pay Activity/i)).toBeInTheDocument();
+    expect(screen.getByText(/No recent activity/i)).toBeInTheDocument();
   });
 
-  it('5. Test A: Clicking Simulate ₹150 Fine calls autonomous endpoint and renders successful settlement state', async () => {
-    vi.mocked(guardianApi.executeAutonomousAutopay).mockResolvedValueOnce({
-      success: true,
-      payment_id: 'pay_auto_12345',
-      razorpay_payment_id: 'pay_sim_999',
-      razorpay_order_id: 'order_sim_888',
-      amount: 150,
-      loan_id: 'loan_within_150',
-      member_id: 'child_123',
-      guardian_id: 'guardian_123',
-      label: 'Guardian Auto-Pay Fine Settlement: Demo Book',
-    });
-
+  it('4. Allows toggling Auto-Pay master switch (ON/OFF)', async () => {
     render(<GuardianAutopaySimulator />);
 
-    const btn150 = await screen.findByRole('button', { name: /Simulate ₹150 Fine/i });
-    expect(btn150).toBeInTheDocument();
+    const pauseBtn = await screen.findByRole('button', { name: /Pause Auto-Pay/i });
+    expect(pauseBtn).toBeInTheDocument();
 
-    fireEvent.click(btn150);
+    fireEvent.click(pauseBtn);
 
-    await waitFor(() => {
-      expect(guardianApi.executeAutonomousAutopay).toHaveBeenCalledWith('loan_within_150');
-    });
-
-    expect(await screen.findByText(/✓ Auto-Pay Executed/i)).toBeInTheDocument();
-    expect(screen.getByText(/EXECUTED recorded/i)).toBeInTheDocument();
+    expect(screen.getByText(/AUTO-PAY PAUSED/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Enable Auto-Pay/i })).toBeInTheDocument();
   });
 
-  it('6. Test B: Clicking Simulate ₹250 Fine handles backend 422 policy rejection and renders Auto-Pay Blocked state', async () => {
-    const error422: any = new Error('Auto-Pay policy evaluation rejected: Transaction amount exceeds cap');
-    error422.status = 422;
-
-    vi.mocked(guardianApi.executeAutonomousAutopay).mockRejectedValueOnce(error422);
+  it('5. Renders Outstanding Fines card with "Review & Pay Fines" button when fine > 0 and navigates without calling autonomous payment', async () => {
+    mockGetGuardianChildren.mockResolvedValueOnce([
+      { id: 'child_123', full_name: 'Saanvi Bose', outstanding_fine: 400 },
+    ]);
 
     render(<GuardianAutopaySimulator />);
 
-    const btn250 = await screen.findByRole('button', { name: /Simulate ₹250 Fine/i });
-    expect(btn250).toBeInTheDocument();
+    expect(await screen.findByText(/Outstanding Fines/i)).toBeInTheDocument();
+    expect(await screen.findByText(/₹400/i)).toBeInTheDocument();
 
-    fireEvent.click(btn250);
+    const reviewBtn = screen.getByRole('button', { name: /Review & Pay Fines/i });
+    expect(reviewBtn).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(guardianApi.executeAutonomousAutopay).toHaveBeenCalledWith('loan_over_250');
-    });
+    fireEvent.click(reviewBtn);
 
-    expect(await screen.findByText(/✕ Auto-Pay Blocked/i)).toBeInTheDocument();
-    expect(screen.getByText(/422 Unprocessable Entity/i)).toBeInTheDocument();
-    expect(screen.getByText(/TRANSACTION_CAP_EXCEEDED/i)).toBeInTheDocument();
+    expect(mockNavigate).toHaveBeenCalledWith('/payment?amount=400&label=Fine%20owed%3A%20%E2%82%B9400&source=guardian_autopay&child_id=child_123');
+    expect(guardianApi.executeAutonomousAutopay).not.toHaveBeenCalled();
   });
 
-  it('7. Verifies that trust & simulator actions do NOT invoke manual Razorpay checkout or approval flow', async () => {
-    vi.mocked(guardianApi.executeAutonomousAutopay).mockResolvedValueOnce({
-      success: true,
-      payment_id: 'pay_auto_12345',
-      razorpay_payment_id: 'pay_sim_999',
-      razorpay_order_id: 'order_sim_888',
-      amount: 150,
-      loan_id: 'loan_within_150',
-      member_id: 'child_123',
-      guardian_id: 'guardian_123',
-      label: 'Guardian Auto-Pay Fine Settlement: Demo Book',
+  it('6. Displays "You\'re all caught up" and no active payment button when outstanding fine is 0', async () => {
+    mockGetGuardianChildren.mockResolvedValueOnce([
+      { id: 'child_123', full_name: 'Saanvi Bose', outstanding_fine: 0 },
+    ]);
+
+    render(<GuardianAutopaySimulator />);
+
+    expect(await screen.findByText(/Outstanding Fines/i)).toBeInTheDocument();
+    expect(await screen.findByText(/all caught up/i)).toBeInTheDocument();
+    expect(screen.getByText(/All Fines Settled/i)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Review & Pay Fines/i })).not.toBeInTheDocument();
+  });
+
+  it('7. Fetches and renders backend activity items (Guardian approved payment, Automatically paid, Payment blocked)', async () => {
+    vi.spyOn(guardianApi, 'getAutopayActivityHistory').mockResolvedValueOnce({
+      items: [
+        {
+          id: 'act_1',
+          type: 'guardian_approved',
+          title: 'Guardian approved payment',
+          badge: 'Manual approval',
+          description: 'Paid after AI limit review',
+          amount: 400,
+          child_name: 'Saanvi Bose',
+          timestamp: new Date().toISOString(),
+        },
+        {
+          id: 'act_2',
+          type: 'autonomous_paid',
+          title: 'Automatically paid',
+          badge: 'AI Auto-Pay',
+          description: 'Paid via AI Auto-Pay',
+          amount: 150,
+          child_name: 'Saanvi Bose',
+          timestamp: new Date().toISOString(),
+        },
+      ],
     });
 
     render(<GuardianAutopaySimulator />);
 
-    const btn150 = await screen.findByRole('button', { name: /Simulate ₹150 Fine/i });
-    fireEvent.click(btn150);
-
-    await waitFor(() => {
-      expect(guardianApi.executeAutonomousAutopay).toHaveBeenCalled();
-    });
-
-    // PROOF: Zero manual Razorpay approval calls
-    expect(guardianApi.approveAutopayCharge).not.toHaveBeenCalled();
-    expect(razorpayLib.loadRazorpayCheckout).not.toHaveBeenCalled();
+    expect(await screen.findByText(/Guardian approved payment/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Manual approval/i).length).toBeGreaterThan(0);
+    expect(screen.getByText(/Automatically paid/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/AI Auto-Pay/i).length).toBeGreaterThan(0);
   });
 });

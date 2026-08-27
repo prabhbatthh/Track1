@@ -5,6 +5,7 @@ from app.api.deps import get_current_user
 from app.core.constants import Role
 from app.modules.guardian_autopay import service
 from app.modules.guardian_autopay.schemas import (
+    AutopayActivityResponse,
     AutopayApproveRequest,
     AutopayApproveResponse,
     AutopayAutonomousResponse,
@@ -95,8 +96,16 @@ async def execute_autonomous_settlement(
 async def get_demo_loans(
     current_user: User = Depends(_require_guardian_user),
 ):
-    """Retrieve or initialize deterministic demo loans for Guardian Auto-Pay simulator."""
-    return await service.get_or_create_demo_loans(current_user.id)
+    """Retrieve deterministic demo loan state for Guardian Auto-Pay simulator (READ-ONLY)."""
+    return await service.get_demo_loans(current_user.id)
+
+
+@router.post("/demo-loans/reset")
+async def reset_demo_loans(
+    current_user: User = Depends(_require_guardian_user),
+):
+    """Explicit user action: Initialize or reset deterministic fine loans for Guardian Auto-Pay demo UI."""
+    return await service.reset_demo_loans(current_user.id)
 
 
 @router.get("/trust-status", response_model=AutopayTrustStatusResponse)
@@ -114,6 +123,14 @@ async def simulate_trust_history(
 ):
     """Demo-only endpoint for live hackathon simulation of trust tier changes (e.g. late returns)."""
     return await service.simulate_trust_history(current_user.id, payload.action)
+
+
+@router.get("/activity", response_model=AutopayActivityResponse)
+async def get_activity(
+    current_user: User = Depends(_require_guardian_user),
+):
+    """Retrieve formatted activity history for Guardian Auto-Pay UI (READ-ONLY)."""
+    return await service.get_activity_history(current_user.id)
 
 
 

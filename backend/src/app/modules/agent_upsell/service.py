@@ -14,6 +14,7 @@ from app.db.prisma import prisma
 from app.modules.agent_upsell.schemas import (
     AIAuditRecord,
     AIAuditTrailResponse,
+    AIFineSavingsEvaluateResponse,
     AgentCatalogItem,
     AgentCatalogResponse,
     AgentCheckoutApproveRequest,
@@ -32,6 +33,7 @@ from app.modules.agent_upsell.schemas import (
 )
 from app.modules.audit_log import service as audit_log_service
 from app.modules.coupons import service as coupons_service
+from app.modules.loans import service as loans_service
 from app.modules.payments import service as payments_service
 
 logger = logging.getLogger(__name__)
@@ -289,6 +291,75 @@ async def evaluate_upsell(
     return response
 
 
+async def evaluate_fine_savings(user: User) -> AIFineSavingsEvaluateResponse:
+    """Evaluate available server-authoritative coupon discounts for member's outstanding fines."""
+    loans = await loans_service.list_my_loans(user.id)
+    fine_amount = sum(
+        loan.fine_amount for loan in loans if loan.fine_amount > 0 and not loan.fine_paid
+    )
+    if fine_amount <= 0:
+        return AIFineSavingsEvaluateResponse(
+            eligible=False,
+            fine_amount=0,
+            discount_percent=0,
+            savings_amount=0,
+            discounted_amount=0,
+            coupon_code=None,
+            rationale=None,
+        )
+
+    all_coupons = await coupons_service.list_coupons()
+    eligible_coupons = [c for c in all_coupons if c.uses_count < c.max_uses]
+    if not eligible_coupons:
+        return AIFineSavingsEvaluateResponse(
+            eligible=False,
+            fine_amount=fine_amount,
+            discount_percent=0,
+            savings_amount=0,
+            discounted_amount=fine_amount,
+            coupon_code=None,
+            rationale=None,
+        )
+
+    # Sort by discount_percent desc, then code asc as tie-breaker
+    eligible_coupons.sort(key=lambda c: (-c.discount_percent, c.code))
+    best_coupon = eligible_coupons[0]
+    discount_percent = best_coupon.discount_percent
+    savings_amount = round(fine_amount * discount_percent / 100)
+    discounted_amount = fine_amount - savings_amount
+    coupon_code = best_coupon.code
+    rationale = (
+        f"You're eligible for an active member fine discount. "
+        f"Applying {discount_percent}% off would save ₹{savings_amount}."
+    )
+
+    try:
+        await audit_log_service.record(
+            actor_id=user.id,
+            action="AI_FINE_SAVINGS_RECOMMENDED",
+            metadata={
+                "user_id": user.id,
+                "original_amount": fine_amount,
+                "discount_percent": discount_percent,
+                "savings_amount": savings_amount,
+                "discounted_amount": discounted_amount,
+                "coupon_code": coupon_code,
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record audit log for AI_FINE_SAVINGS_RECOMMENDED: %s", exc)
+
+    return AIFineSavingsEvaluateResponse(
+        eligible=True,
+        fine_amount=fine_amount,
+        discount_percent=discount_percent,
+        savings_amount=savings_amount,
+        discounted_amount=discounted_amount,
+        coupon_code=coupon_code,
+        rationale=rationale,
+    )
+
+
 async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAcceptResponse:
     """Accept an AI-recommended membership upgrade and create a server-authoritative Razorpay order."""
     # 1. Resolve recommended plan directly from PostgreSQL
@@ -355,25 +426,34 @@ async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAccep
         logger.error("Failed to record UPSELL_ACCEPTED audit log: %s", exc)
 
     # 5. Create Razorpay order using existing server-authoritative Razorpay integration
-    client = payments_service._get_client()
+    is_demo_mode = get_settings().payment_gateway_mode == "demo"
+    notes = {
+        "member_id": user.id,
+        "label": f"{rec_plan_info.months} month membership",
+        "plan_months": str(rec_plan_info.months),
+        "plan_id": rec_plan_info.plan_id,
+        "current_plan_id": current_plan_info.plan_id,
+        "coupon_code": payload.coupon_code or "",
+        "eval_id": payload.eval_id or "",
+        "source": "ai_upsell",
+        "feature": "feature_2",
+    }
 
-    order = client.order.create(
-        {
-            "amount": amount * 100,
-            "currency": "INR",
-            "notes": {
-                "member_id": user.id,
-                "label": f"{rec_plan_info.months} month membership",
-                "plan_months": str(rec_plan_info.months),
-                "plan_id": rec_plan_info.plan_id,
-                "current_plan_id": current_plan_info.plan_id,
-                "coupon_code": payload.coupon_code or "",
-                "eval_id": payload.eval_id or "",
-                "source": "ai_upsell",
-                "feature": "feature_2",
-            },
-        }
-    )
+    if is_demo_mode:
+        order_id = f"order_demo_{uuid.uuid4().hex[:16]}"
+        payments_service.record_demo_order(order_id, amount, notes)
+        key_id = "rzp_demo_key"
+    else:
+        client = payments_service._get_client()
+        order = client.order.create(
+            {
+                "amount": amount * 100,
+                "currency": "INR",
+                "notes": notes,
+            }
+        )
+        order_id = order["id"]
+        key_id = get_settings().razorpay_key_id
 
     # 6. Record UPSELL_ORDER_CREATED audit event
     try:
@@ -384,7 +464,7 @@ async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAccep
                 "user_id": user.id,
                 "eval_id": payload.eval_id or "",
                 "recommended_plan_id": rec_plan_info.plan_id,
-                "order_id": order["id"],
+                "order_id": order_id,
                 "server_calculated_amount": amount,
                 "currency": "INR",
                 "source": "ai_upsell",
@@ -394,10 +474,10 @@ async def accept_upsell(payload: UpsellAcceptRequest, user: User) -> UpsellAccep
         logger.error("Failed to record UPSELL_ORDER_CREATED audit log: %s", exc)
 
     return UpsellAcceptResponse(
-        order_id=order["id"],
+        order_id=order_id,
         amount=amount,
         currency="INR",
-        key_id=get_settings().razorpay_key_id,
+        key_id=key_id,
         plan_id=rec_plan_info.plan_id,
         plan_name=rec_plan_info.name,
         source="ai_upsell",
@@ -410,8 +490,25 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
     raw_entries = await prisma.auditlogentry.find_many(
         where={
             "actorId": user.id,
-            "action": {"in": ["UPSELL_RECOMMENDED", "UPSELL_ACCEPTED", "UPSELL_ORDER_CREATED", "UPSELL_VERIFIED"]},
+            "action": {
+                "in": [
+                    "UPSELL_RECOMMENDED",
+                    "UPSELL_ACCEPTED",
+                    "UPSELL_ORDER_CREATED",
+                    "UPSELL_VERIFIED",
+                    "AGENT_CHECKOUT_PROPOSED",
+                    "AGENT_CHECKOUT_ORDER_CREATED",
+                    "AI_FINE_SAVINGS_RECOMMENDED",
+                    "AI_FINE_SAVINGS_VERIFIED",
+                ]
+            },
         },
+        order={"createdAt": "desc"},
+    )
+
+    # Also query agent checkout proposals for this user
+    proposals = await prisma.agentcheckoutproposal.find_many(
+        where={"userId": user.id},
         order={"createdAt": "desc"},
     )
 
@@ -420,12 +517,16 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
     accepted_evals = set()
     order_created_map = {}
     verified_orders = set()
+    verified_proposals = set()
+    fine_savings_entries = []
 
     for entry in raw_entries:
         meta = entry.metadata if isinstance(entry.metadata, dict) else {}
         action = entry.action
 
-        if action == "UPSELL_ACCEPTED":
+        if action == "AI_FINE_SAVINGS_VERIFIED":
+            fine_savings_entries.append((entry, meta))
+        elif action == "UPSELL_ACCEPTED":
             eid = meta.get("eval_id")
             if eid:
                 accepted_evals.add(eid)
@@ -434,10 +535,18 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
             oid = meta.get("order_id")
             if eid:
                 order_created_map[eid] = oid
+        elif action == "AGENT_CHECKOUT_ORDER_CREATED":
+            pid = meta.get("proposal_id")
+            oid = meta.get("order_id")
+            if pid and oid:
+                order_created_map[pid] = oid
         elif action == "UPSELL_VERIFIED":
             oid = meta.get("razorpay_order_id")
             if oid:
                 verified_orders.add(oid)
+            pid = meta.get("proposal_id")
+            if pid:
+                verified_proposals.add(pid)
         elif action == "UPSELL_RECOMMENDED":
             eid = meta.get("eval_id") or str(entry.id)
             if eid not in recommendations:
@@ -446,7 +555,46 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
                     "metadata": meta,
                 }
 
+    # Map completed proposals by proposalId
+    completed_proposals_map = {
+        p.proposalId: p
+        for p in proposals
+        if p.status == "COMPLETED" or p.proposalId in verified_proposals or (p.orderId and p.orderId in verified_orders)
+    }
+
     records: list[AIAuditRecord] = []
+    processed_proposals = set()
+
+    for entry, meta in fine_savings_entries:
+        savings_amount = meta.get("savings_amount") or 0
+        discount_percent = meta.get("discount_percent") or 10
+        rec_info = UpsellPlanInfo(
+            plan_id="fine_savings",
+            name="Fine Settlement Discount",
+            months=0,
+            price=meta.get("discounted_amount", 0),
+            save_percent=discount_percent,
+        )
+        records.append(
+            AIAuditRecord(
+                audit_id=str(entry.id),
+                eval_id=str(entry.id),
+                timestamp=entry.createdAt.isoformat(),
+                current_plan=None,
+                recommended_plan=rec_info,
+                usage_signals=MemberUsageSignals(total_loans=0, active_loans=0, total_visits=0),
+                decision="recommend",
+                reason_code="fine_discount",
+                explanation=f"AI applied member fine perk ({meta.get('coupon_code', 'PERK')}). Saved ₹{savings_amount}.",
+                savings_amount=savings_amount,
+                savings_percent=discount_percent,
+                accepted=True,
+                payment_initiated=True,
+                payment_status="completed",
+                order_id=meta.get("razorpay_order_id"),
+            )
+        )
+
     for eid, data in recommendations.items():
         entry = data["entry"]
         meta = data["metadata"]
@@ -455,6 +603,21 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
         order_id = order_created_map.get(eid)
         is_initiated = order_id is not None
         is_completed = order_id in verified_orders if order_id else False
+
+        # Check if there is a matching completed proposal for this recommendation
+        matched_proposal = None
+        for pid, prop in completed_proposals_map.items():
+            if pid not in processed_proposals:
+                if pid == eid or (prop.orderId and prop.orderId == order_id):
+                    matched_proposal = prop
+                    processed_proposals.add(pid)
+                    break
+
+        if matched_proposal:
+            is_accepted = True
+            is_initiated = True
+            is_completed = True
+            order_id = matched_proposal.orderId or order_id
 
         status = "pending"
         if is_completed:
@@ -482,12 +645,25 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
                 price=meta.get("recommended_plan_price", 8991),
                 save_percent=meta.get("savings_percent", 25),
             )
+        elif matched_proposal:
+            months = 12 if matched_proposal.planId == "12m" else (6 if matched_proposal.planId == "6m" else (3 if matched_proposal.planId == "3m" else 1))
+            rec_info = UpsellPlanInfo(
+                plan_id=matched_proposal.planId,
+                name=f"{months} Month Membership",
+                months=months,
+                price=matched_proposal.originalPrice,
+                save_percent=matched_proposal.savingsPercent,
+            )
 
         signals_data = meta.get("usage_signals") or {}
         signals = MemberUsageSignals(
             total_loans=signals_data.get("total_loans", 0),
             active_loans=signals_data.get("active_loans", 0),
             total_visits=signals_data.get("total_visits", 0),
+        )
+
+        savings_amount = matched_proposal.savingsAmount if matched_proposal else (
+            (rec_info.price - curr_info.price) if (rec_info and curr_info) else None
         )
 
         records.append(
@@ -501,8 +677,8 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
                 decision=meta.get("policy_decision", "recommend"),
                 reason_code=meta.get("policy_reason_code", "high_usage"),
                 explanation=meta.get("reason", "Active library usage makes a longer membership more cost-effective."),
-                savings_amount=(rec_info.price - curr_info.price) if (rec_info and curr_info) else None,
-                savings_percent=meta.get("savings_percent", 25),
+                savings_amount=savings_amount,
+                savings_percent=matched_proposal.savingsPercent if matched_proposal else meta.get("savings_percent", 25),
                 accepted=is_accepted,
                 payment_initiated=is_initiated,
                 payment_status=status,
@@ -510,6 +686,44 @@ async def get_audit_trail(user: User) -> AIAuditTrailResponse:
             )
         )
 
+    # For any completed proposals not matched to an existing recommendation record, create standalone audit records
+    for pid, prop in completed_proposals_map.items():
+        if pid not in processed_proposals:
+            months = 12 if prop.planId == "12m" else (6 if prop.planId == "6m" else (3 if prop.planId == "3m" else 1))
+            rec_info = UpsellPlanInfo(
+                plan_id=prop.planId,
+                name=f"{months} Month Membership",
+                months=months,
+                price=prop.originalPrice,
+                save_percent=prop.savingsPercent,
+            )
+            curr_info = UpsellPlanInfo(
+                plan_id="1m",
+                name="1 Month Membership",
+                months=1,
+                price=999,
+            )
+            records.append(
+                AIAuditRecord(
+                    audit_id=f"proposal_{prop.proposalId}",
+                    eval_id=prop.proposalId,
+                    timestamp=prop.createdAt.isoformat(),
+                    current_plan=curr_info,
+                    recommended_plan=rec_info,
+                    usage_signals=MemberUsageSignals(total_loans=0, active_loans=0, total_visits=0),
+                    decision="recommend",
+                    reason_code="high_usage",
+                    explanation="AI recommended membership plan upgrade.",
+                    savings_amount=prop.savingsAmount,
+                    savings_percent=prop.savingsPercent,
+                    accepted=True,
+                    payment_initiated=True,
+                    payment_status="completed",
+                    order_id=prop.orderId,
+                )
+            )
+
+    records.sort(key=lambda r: r.timestamp, reverse=True)
     return AIAuditTrailResponse(records=records)
 
 
@@ -803,22 +1017,32 @@ async def approve_checkout_proposal(
     plan_name = f"{months} Month Membership" if months != 1 else "1 Month Membership"
 
     # 6. Create Razorpay order using persisted server-authoritative finalPrice
-    client = payments_service._get_client()
-    order = client.order.create(
-        {
-            "amount": proposal.finalPrice * 100,
-            "currency": "INR",
-            "notes": {
-                "member_id": user.id,
-                "label": f"{months} month membership",
-                "plan_months": str(months),
-                "plan_id": proposal.planId,
-                "coupon_code": proposal.couponCode or "",
-                "proposal_id": proposal.proposalId,
-                "source": "agent_checkout",
-            },
-        }
-    )
+    is_demo_mode = get_settings().payment_gateway_mode == "demo"
+    notes = {
+        "member_id": user.id,
+        "label": f"{months} month membership",
+        "plan_months": str(months),
+        "plan_id": proposal.planId,
+        "coupon_code": proposal.couponCode or "",
+        "proposal_id": proposal.proposalId,
+        "source": "agent_checkout",
+    }
+
+    if is_demo_mode:
+        order_id = f"order_demo_{uuid.uuid4().hex[:16]}"
+        payments_service.record_demo_order(order_id, proposal.finalPrice, notes)
+        key_id = "rzp_demo_key"
+    else:
+        client = payments_service._get_client()
+        order = client.order.create(
+            {
+                "amount": proposal.finalPrice * 100,
+                "currency": "INR",
+                "notes": notes,
+            }
+        )
+        order_id = order["id"]
+        key_id = get_settings().razorpay_key_id
 
     # 7. Update proposal status to APPROVED & store orderId
     approved_at = datetime.now(UTC)
@@ -827,7 +1051,7 @@ async def approve_checkout_proposal(
         data={
             "status": "APPROVED",
             "approvedAt": approved_at,
-            "orderId": order["id"],
+            "orderId": order_id,
         },
     )
 
@@ -848,7 +1072,7 @@ async def approve_checkout_proposal(
             metadata={
                 "proposal_id": proposal.proposalId,
                 "user_id": user.id,
-                "order_id": order["id"],
+                "order_id": order_id,
                 "amount": proposal.finalPrice,
                 "source": "agent_checkout",
             },
@@ -859,10 +1083,10 @@ async def approve_checkout_proposal(
     return AgentCheckoutApproveOut(
         proposal_id=proposal.proposalId,
         status="APPROVED",
-        order_id=order["id"],
+        order_id=order_id,
         amount=proposal.finalPrice,
         currency="INR",
-        key_id=get_settings().razorpay_key_id,
+        key_id=key_id,
         plan_id=proposal.planId,
         plan_name=plan_name,
         source="agent_checkout",

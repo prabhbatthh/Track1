@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     # dashboard (Settings > API Keys) are set. key_secret never leaves the backend.
     razorpay_key_id: str = Field(default="", validation_alias="RAZORPAY_KEY_ID")
     razorpay_key_secret: str = Field(default="", validation_alias="RAZORPAY_KEY_SECRET")
+    payment_gateway_mode: str = Field(default="razorpay", validation_alias="PAYMENT_GATEWAY_MODE")
     # Redis (chat history)
     redis_url: str = Field(default="redis://localhost:6379/0", validation_alias="REDIS_URL")
     chat_history_ttl_seconds: int = Field(default=3600, validation_alias="CHAT_HISTORY_TTL_SECONDS")

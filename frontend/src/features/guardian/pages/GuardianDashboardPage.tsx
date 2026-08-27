@@ -17,7 +17,6 @@ import { useAuth, type ChildVisitStatus, type GuardianChild } from '@/providers/
 
 import { BorrowedBooksByChild } from '../components/BorrowedBooksByChild';
 import { ChildrenPresence } from '../components/ChildrenPresence';
-import { GuardianAutopaySimulator } from '../components/GuardianAutopaySimulator';
 import { GuardianStatModal, type GuardianStatKey } from '../components/GuardianStatModal';
 import { SeatReservationForChild } from '../components/SeatReservationForChild';
 import { SubscriptionAndFines } from '../components/SubscriptionAndFines';
@@ -158,8 +157,6 @@ export function GuardianDashboardPage() {
         <SubscriptionAndFines children={realChildren} onChanged={refreshChildren} />
         <SeatReservationForChild children={realChildren} />
       </div>
-
-      <GuardianAutopaySimulator />
 
       <ChildrenReadingProgress realChildren={realChildren} />
 

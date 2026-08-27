@@ -102,7 +102,9 @@ export const guardianOverviewNavItem: NavItem = {
 
 export const guardianNavigation: NavItem[] = [
   guardianOverviewNavItem,
+  { label: 'nav.guardianAutopay', path: ROUTES.GUARDIAN_AUTOPAY, icon: Bot },
   { label: 'nav.readingProgress', path: ROUTES.READING_PROGRESS, icon: BookMarked },
   { label: 'nav.support', path: ROUTES.SUPPORT, icon: LifeBuoy },
   { label: 'nav.settings', path: ROUTES.SETTINGS, icon: Settings },
 ];
+

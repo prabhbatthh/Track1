@@ -6,6 +6,7 @@ from prisma.models import User
 from app.api.deps import get_current_user
 from app.modules.agent_upsell.schemas import (
     AIAuditTrailResponse,
+    AIFineSavingsEvaluateResponse,
     AgentCheckoutApproveOut,
     AgentCheckoutApproveRequest,
     AgentCheckoutProposalOut,
@@ -19,6 +20,7 @@ from app.modules.agent_upsell.service import (
     accept_upsell,
     approve_checkout_proposal,
     create_checkout_proposal,
+    evaluate_fine_savings,
     evaluate_upsell,
     get_audit_trail,
 )
@@ -63,6 +65,18 @@ async def evaluate_agent_upsell(
 ) -> UpsellEvaluateResponse:
     """Evaluate whether a higher-value membership plan is a sensible upgrade."""
     return await evaluate_upsell(payload, user)
+
+
+@router.post(
+    "/agent/fine-savings/evaluate",
+    response_model=AIFineSavingsEvaluateResponse,
+    summary="Evaluate available member discounts and savings for outstanding fine payment",
+)
+async def evaluate_agent_fine_savings(
+    user: Annotated[User, Depends(get_current_user)],
+) -> AIFineSavingsEvaluateResponse:
+    """Evaluate available server-authoritative coupon discounts for member's outstanding fines."""
+    return await evaluate_fine_savings(user)
 
 
 @router.post(

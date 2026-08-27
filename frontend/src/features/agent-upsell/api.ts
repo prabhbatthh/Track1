@@ -2,6 +2,7 @@ import { apiGet, apiPost } from '@/lib/api';
 
 import type {
   AIAuditTrailResponse,
+  AIFineSavingsEvaluateResponse,
   AgentCheckoutApproveOut,
   AgentCheckoutApproveRequest,
   AgentCheckoutProposalOut,
@@ -17,6 +18,10 @@ export async function evaluateUpsell(
   token?: string
 ): Promise<UpsellEvaluateResponse> {
   return apiPost<UpsellEvaluateResponse>('/agent/upsell/evaluate', payload, token);
+}
+
+export async function evaluateFineSavings(token?: string): Promise<AIFineSavingsEvaluateResponse> {
+  return apiPost<AIFineSavingsEvaluateResponse>('/agent/fine-savings/evaluate', {}, token);
 }
 
 export async function acceptUpsell(

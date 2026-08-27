@@ -126,10 +126,26 @@ export const CONVERSATION_TREE: Record<string, TreeNode> = {
     id: 'fines',
     botMessage: 'What would you like to know about fines and payments?',
     options: [
-      { label: 'How are overdue fines calculated?', nextId: 'fines_calculated' },
+      { label: 'What is AI Guardian Auto-Pay?', nextId: 'fines_autopay_what' },
+      { label: 'How does Auto-Pay work?', nextId: 'fines_autopay_how' },
       { label: 'How do I pay my fines?', nextId: 'fines_pay' },
+      { label: 'How are overdue fines calculated?', nextId: 'fines_calculated' },
       { label: 'Can a fine be waived?', nextId: 'fines_waive' },
     ],
+  },
+  fines_autopay_what: {
+    id: 'fines_autopay_what',
+    botMessage:
+      'AI Guardian Auto-Pay lets you allow AI to settle eligible library fines for your linked child automatically, while keeping strict spending limits under your control.\n\n' +
+      'You set a maximum amount AI can pay per fine and a monthly limit. Fines within those limits can be settled automatically. If a fine exceeds the limit, AI blocks the automatic payment and alerts you so you can review and approve it yourself.\n\n' +
+      'You can manage these controls from the AI Guardian Auto-Pay page in your sidebar.',
+  },
+  fines_autopay_how: {
+    id: 'fines_autopay_how',
+    botMessage:
+      'AI Guardian Auto-Pay evaluates each eligible child fine against your set policy limits (per-fine limit and monthly limit) and child safety status.\n\n' +
+      '• Within limit (e.g. ₹150 fine with ₹200 limit): AI checks policy and settles the fine automatically without requiring manual approval.\n' +
+      '• Exceeds limit (e.g. ₹250 fine with ₹200 limit): AI blocks the automatic payment, notifies you, and requires your manual review and approval.',
   },
   fines_calculated: {
     id: 'fines_calculated',
@@ -139,7 +155,8 @@ export const CONVERSATION_TREE: Record<string, TreeNode> = {
   fines_pay: {
     id: 'fines_pay',
     botMessage:
-      '1. Open My Account.\n2. Navigate to Fines & Payments.\n3. Review outstanding fines.\n4. Select Pay Now.\n5. Complete payment using the available payment method.',
+      '1. Eligible AI Auto-Pay: If Auto-Pay is enabled and the fine is within your allowed policy limits, AI may settle it automatically.\n' +
+      '2. Manual Payment: For fines requiring guardian review or exceeding policy limits, navigate to AI Guardian Auto-Pay in your sidebar → Review & Pay Fines → Review the payment → Approve & Pay.',
   },
   fines_waive: {
     id: 'fines_waive',

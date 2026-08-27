@@ -33,4 +33,5 @@ export const ROUTES = {
   IT_HEAD: '/it-head',
   IT_HEAD_REPORTS: '/it-head/reports',
   GUARDIAN: '/guardian',
+  GUARDIAN_AUTOPAY: '/guardian/autopay',
 } as const;

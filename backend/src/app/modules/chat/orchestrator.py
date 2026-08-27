@@ -31,6 +31,7 @@ from app.modules.audit_log import service as audit_log_service
 from app.modules.books import service as books_service
 from app.modules.books.schemas import BookSort
 from app.modules.chat.guardrails import GuardrailBlock, check_input, check_output
+from app.modules.chat.knowledge import find_rag_answer
 from app.modules.chat.schemas import ChatMessage, ChatResponse
 from app.modules.events import service as events_service
 from app.modules.leaderboard import service as leaderboard_service
@@ -382,7 +383,8 @@ async def get_my_reading_streak(query: str = "") -> str:
 
 @tool
 async def get_pricing_plans(query: str = "") -> str:
-    """Get library membership pricing plans. Call with query=""."""
+    """Get library membership pricing plans (1/3/6/12 month subscriptions). Call with query="".
+    Do NOT call this tool for fine payments or AI Guardian Auto-Pay policy questions."""
     plans = await pricing_plans_service.list_plans()
     if not plans:
         return "No pricing plans found."
@@ -719,6 +721,29 @@ async def evaluate_membership_upsell() -> str:
         return _tool_error("Could not evaluate membership upgrade", exc)
 
 
+@tool
+async def get_guardian_autopay_policy() -> str:
+    """GUARDIAN ONLY. Retrieve the authenticated guardian's live AI Guardian Auto-Pay policy (enabled state, per_transaction_cap, monthly_spending_cap).
+    Use this tool for personalized policy questions like 'What is my fine limit?', 'How do I pay 400 fine then?', 'Why didn't AI pay my fine?', 'How do I increase my fine limit?', or 'How much can AI spend?'."""
+    if _role() != Role.GUARDIAN.value and _role() != "guardian":
+        return "Auto-Pay policy settings are only available for Guardian accounts with linked children."
+    guardian_id = _member_id()
+    if not guardian_id:
+        return "Authentication context missing."
+    try:
+        from app.modules.guardian_autopay import service as guardian_autopay_service
+        policy = await guardian_autopay_service.get_guardian_active_policy(guardian_id)
+        if policy is None:
+            return "No active AI Guardian Auto-Pay policy found for your account."
+        return json.dumps({
+            "enabled": policy.enabled,
+            "per_transaction_cap": policy.per_transaction_cap,
+            "monthly_spending_cap": policy.monthly_spending_cap,
+        })
+    except Exception as exc:
+        return _tool_error("Could not retrieve Auto-Pay policy", exc)
+
+
 # ── Tools list ────────────────────────────────────────────────────────────────
 TOOLS = [
     get_upcoming_events,
@@ -736,6 +761,7 @@ TOOLS = [
     get_my_reading_streak,
     get_pricing_plans,
     evaluate_membership_upsell,
+    get_guardian_autopay_policy,
     reserve_book,
     cancel_reservation,
     book_seat,
@@ -764,9 +790,32 @@ Your job:
 - ALWAYS call a tool to get live data. Never answer data questions from memory.
 - The get_books tool returns a sample of up to 10 books — the library has hundreds. Never say 'here are all the books'. Always say 'here are some books' or 'here are a few books from our collection'.
 - When a tool response includes a total_count field, always report that number as the actual total — never count the items in the sample and report that as the total.
-- Resolve pronouns ("which one", "those", "it") from prior conversation turns before calling a tool.
+- Resolve pronouns ("which one", "those", "it", "this", "that") from prior conversation turns before selecting a domain or calling a tool. When prior turns discussed AI Guardian Auto-Pay, pronouns such as "it", "this", "that", "how do I use it", "what do I do with it" refer strictly to AI Guardian Auto-Pay, NOT membership plans. Do NOT switch domain to membership subscriptions unless the user explicitly introduces a membership plan topic (e.g. "what about the 12 month plan?").
 - Only answer library-related questions. For anything else say: "I can only help with library-related topics."
-- Financial actions (paying fines, purchasing membership plans, or modifying policy caps) are strictly non-executable by AI. If a user asks to pay a fine or upgrade a plan, provide clear information and direct them to the explicit consent UI flow (e.g. Settle Fine dropdown on Guardian dashboard or Payment page). Never attempt to initiate payment checkouts or create payment orders directly.
+- MEMBERSHIP SUBSCRIPTIONS & PRICING PLANS:
+  * Library membership plans (1, 3, 6, 12-month subscriptions) are core library features.
+  * When a user asks about membership plans, subscription plans, pricing, discounts, duration comparisons, or plan recommendations (e.g. "which is the best subscription plan for me?", "how much is the 12 month plan?", "which membership plan should I choose?", "which plan gives the best discount?", "recommend a plan for me"):
+    - ALWAYS call get_pricing_plans to retrieve available plans (1, 3, 6, 12 months) with prices, discounts, and badges.
+    - CALL evaluate_membership_upsell to check for personalized upgrade/savings recommendations based on usage history.
+    - Present the membership options clearly based strictly on data returned by get_pricing_plans.
+    - NEVER fabricate, combine, or multiply monthly prices to calculate total costs (e.g. do NOT say "3 months for ₹2697"). Report plan prices exactly as returned by get_pricing_plans.
+    - Provide an objective comparison (e.g. 12-month plan offers the highest 25% savings for long-term active readers, while 1 and 3-month plans offer short-term flexibility).
+- AI GUARDIAN AUTO-PAY (FINES ONLY):
+  * AI Guardian Auto-Pay is a bounded autonomous fine-settlement feature for guardians to manage library fines accrued by their linked child.
+  * Controls: A Guardian can configure Auto-Pay ON/OFF, per-transaction fine limit (per-fine cap), and monthly spending limit.
+  * Do NOT call get_pricing_plans for fine payments or AI Guardian Auto-Pay policy questions.
+  * When a user asks personalized policy questions (e.g. "What is my fine limit?", "How do I pay 400 fine then?", "Why didn't AI pay my fine?", "How do I increase my limit?"), ALWAYS call the get_guardian_autopay_policy tool to retrieve their live policy configuration (enabled, per_transaction_cap, monthly_spending_cap).
+  * Use the retrieved live policy values in your answer:
+    - If user asks about paying a specific fine amount (e.g. ₹400):
+      * Compare fine amount against the retrieved per_transaction_cap.
+      * If fine amount > per_transaction_cap: Explain "Your current AI Auto-Pay limit is ₹{{per_transaction_cap}} per fine, so a ₹{{fine_amount}} fine cannot be paid automatically. AI has already blocked automatic payment because it exceeds your configured limit. You remain in control and can review and approve it manually from AI Guardian Auto-Pay → Review & Pay Fines → Approve & Pay."
+      * If fine amount <= per_transaction_cap: Explain "Your current AI Auto-Pay limit is ₹{{per_transaction_cap}} per fine, so ₹{{fine_amount}} is within your configured per-fine limit. AI can consider it for automatic payment, subject to the remaining Auto-Pay safety checks. If you need to pay it manually, open AI Guardian Auto-Pay → Review & Pay Fines → Approve & Pay."
+    - If user asks how to increase/change limits:
+      * Report their live limits: "Your current AI Auto-Pay limit is ₹{{per_transaction_cap}} per fine and ₹{{monthly_spending_cap}} per month. You can review and adjust your limits on the AI Guardian Auto-Pay page in your sidebar. Any increase remains subject to the system's safety ceiling."
+    - If user asks why AI didn't pay their fine:
+      * Explain using live limits: "AI may block automatic payment when a fine exceeds your per-fine limit (currently ₹{{per_transaction_cap}}), your monthly Auto-Pay limit (currently ₹{{monthly_spending_cap}}) has been reached, or another safety rule prevents automatic settlement. Open AI Guardian Auto-Pay → Review & Pay Fines to review and approve the payment manually."
+  * NEVER tell a user to choose a 1/3/6/12-month membership plan or visit Settings → Payment Settings to pay a fine or configure Auto-Pay.
+- Financial actions (paying fines, purchasing membership plans, or modifying policy caps) are strictly non-executable by AI. If a user asks to pay a fine or upgrade a plan, provide clear information and direct them to the explicit consent UI flow (e.g. Review & Pay Fines on Guardian Auto-Pay page or Payment page). Never attempt to initiate payment checkouts or create payment orders directly.
 - When the user asks to book a seat, ALWAYS call get_seat_availability first to get available seat labels and today's date, then call book_seat with a real seat label from that response.
 - When the user asks to reserve a book by title, ALWAYS call get_books first to get the book_id, then call reserve_book with that id.
 - When the user asks to register for an event by name, ALWAYS call get_upcoming_events first to get the event_id, then call register_for_event.
@@ -803,6 +852,11 @@ async def run_chat(
         safe_message = check_input(message)
     except GuardrailBlock as block:
         return ChatResponse(reply=block.reply, source="rag")
+
+    # 1b. Fast RAG / FAQ match for static product knowledge
+    rag_reply = find_rag_answer(safe_message, history)
+    if rag_reply:
+        return ChatResponse(reply=rag_reply, source="rag")
 
     # 2. TAG + LLM via LangGraph ReAct agent
     _ctx.set({"member_id": member_id, "role": role, "user_name": user_name})
@@ -853,23 +907,44 @@ async def run_chat(
             except Exception as audit_exc:
                 logger.error("Failed to record CHAT_TOOL_EXECUTED audit log: %s", audit_exc)
 
-        # Anti-hallucination: if the LLM answered a book/event/data question
-        # without calling any tool, force it to use the tool instead.
+        # Anti-hallucination: if the LLM answered a book/event/membership/data question
+        # without calling any tool, force it to use the appropriate tool.
         tool_was_called = any(hasattr(m, "type") and m.type == "tool" for m in result["messages"])
-        data_question = any(
-            kw in message.lower()
+        msg_lower = message.lower()
+        is_membership_query = any(
+            kw in msg_lower
+            for kw in ["plan", "membership", "subscription", "pricing", "discount"]
+        ) and not any(
+            kw in msg_lower
+            for kw in ["auto pay", "autopay", "auto-pay", "fine"]
+        )
+
+        book_data_question = any(
+            kw in msg_lower
             for kw in [
-                "recommend",
-                "suggest",
                 "what should i read",
                 "best book",
                 "top book",
                 "highest rated",
                 "popular book",
                 "what to read",
+                "book recommendation",
             ]
+        ) or (
+            any(kw in msg_lower for kw in ["recommend", "suggest"])
+            and not is_membership_query
         )
-        if data_question and not tool_was_called:
+
+        if is_membership_query and not tool_was_called:
+            msgs.append(AIMessage(content=final))
+            msgs.append(
+                HumanMessage(
+                    content="Use the get_pricing_plans tool (and evaluate_membership_upsell if helpful) to get live library membership plan details and pricing to answer the question. Do not answer from memory or refuse."
+                )
+            )
+            result2 = await agent.ainvoke({"messages": msgs})
+            final = check_output(result2["messages"][-1].content)
+        elif book_data_question and not tool_was_called:
             # Re-invoke with an explicit instruction to use the tool
             msgs.append(AIMessage(content=final))
             msgs.append(

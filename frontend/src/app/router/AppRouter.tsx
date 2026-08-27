@@ -161,6 +161,12 @@ const GuardianDashboardPage = lazy(() =>
     default: m.GuardianDashboardPage,
   })),
 );
+const GuardianAutopayPage = lazy(() =>
+  import('@/features/guardian/pages/GuardianAutopayPage').then((m) => ({
+    default: m.GuardianAutopayPage,
+  })),
+);
+
 
 const router = createBrowserRouter([
   {
@@ -267,7 +273,9 @@ const router = createBrowserRouter([
     errorElement: <RouterErrorFallback />,
     children: [
       { path: relative(ROUTES.GUARDIAN), element: withSuspense(<GuardianDashboardPage />) },
+      { path: relative(ROUTES.GUARDIAN_AUTOPAY), element: withSuspense(<GuardianAutopayPage />) },
     ],
+
   },
 ]);
 

@@ -1,12 +1,13 @@
-import { ArrowRight, Bot, Check, CheckCircle2, ShieldCheck, Trophy } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { ArrowLeft, ArrowRight, Bot, Check, CheckCircle2, ShieldAlert, ShieldCheck, Trophy } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { toast } from 'sonner';
 
 import { PageHeader } from '@/components/common';
 import { ErrorState } from '@/components/feedback';
-import { Button, Input } from '@/components/ui';
+import { Badge, Button, Input } from '@/components/ui';
 import { ROUTES } from '@/constants/routes';
 import {
   AICheckoutApprovalModal,
@@ -14,20 +15,25 @@ import {
   acceptUpsell,
   approveCheckoutProposal,
   createCheckoutProposal,
+  evaluateFineSavings,
   evaluateUpsell,
   fetchAIAuditTrail,
+  type AIFineSavingsEvaluateResponse,
   type AgentCheckoutProposalOut,
   type UpsellEvaluateResponse,
 } from '@/features/agent-upsell';
 import { getErrorMessage } from '@/lib/api';
-import { loadRazorpayCheckout } from '@/lib/razorpay';
+import { createRazorpayCheckout, isDemoOrder, loadRazorpayCheckout } from '@/lib/razorpay';
 import { useAuth, type CouponValidation, type PricingPlan } from '@/providers/AuthProvider';
+import { membershipKeys } from '../hooks/useMembershipQuery';
+import { AIFineSavingsCard } from '../components/AIFineSavingsCard';
 import { AISavingsPanel } from '../components/AISavingsPanel';
 import { RecentAISavingsModal } from '../components/RecentAISavingsModal';
 
 // Auth is already enforced by the ProtectedRoute this page is nested under
 // (see AppRouter.tsx) — no need to re-check isAuthenticated here.
 export function PaymentPage() {
+  const queryClient = useQueryClient();
   const { t } = useTranslation();
   const [params] = useSearchParams();
   const navigate = useNavigate();
@@ -53,6 +59,9 @@ export function PaymentPage() {
   const rawAmount = amountParam === null ? Number.NaN : Number(amountParam);
   const label = params.get('label') ?? t('payment.defaultLabel');
   const isRenewal = params.get('renewal') === '1';
+  const sourceParam = params.get('source') ?? params.get('from');
+  const isFromGuardianAutopay = sourceParam === 'guardian_autopay' || sourceParam === 'autopay';
+  const childId = params.get('child_id') ?? undefined;
 
   const [plan, setPlan] = useState<PricingPlan | null>(null);
   const [allPricingPlans, setAllPricingPlans] = useState<PricingPlan[]>([]);
@@ -102,28 +111,50 @@ export function PaymentPage() {
     Array<{ id: string; planName: string; savingsAmount: number }>
   >([]);
 
-  useEffect(() => {
-    if (!token) return;
-    let active = true;
-    fetchAIAuditTrail(token)
+  const [aiFineProposal, setAiFineProposal] = useState<AIFineSavingsEvaluateResponse | null>(null);
+  const [aiFineDismissed, setAiFineDismissed] = useState<boolean>(false);
+  const [isAppliedAiFine, setIsAppliedAiFine] = useState<boolean>(false);
+
+  const loadRecentSavings = useCallback((authToken: string) => {
+    return fetchAIAuditTrail(authToken)
       .then((data) => {
-        if (!active) return;
         const completed = (data.records || [])
           .filter((r) => r.payment_status === 'completed' && r.accepted)
           .map((r, idx) => ({
             id: r.eval_id || `completed_${idx}`,
-            planName: r.recommended_plan?.name || '12 Month Membership',
+            planName: r.recommended_plan?.name || (r as any).label || '12 Month Membership',
             savingsAmount: r.savings_amount || 2997,
           }));
         setRecentCompletedSavings(completed);
+        return completed;
       })
       .catch((err) => {
         console.warn('AI audit trail fetch skipped or failed for member history:', err);
+        return [];
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!token) return;
+    loadRecentSavings(token);
+  }, [token, loadRecentSavings]);
+
+  useEffect(() => {
+    if (planId || aiFineDismissed || !token) return;
+    let active = true;
+    evaluateFineSavings(token)
+      .then((res) => {
+        if (active && res.eligible) {
+          setAiFineProposal(res);
+        }
+      })
+      .catch((err) => {
+        console.warn('AI fine savings evaluation skipped:', err);
       });
     return () => {
       active = false;
     };
-  }, [token]);
+  }, [planId, aiFineDismissed, token]);
 
   useEffect(() => {
     if (!planId || upsellDismissed) return;
@@ -186,18 +217,45 @@ export function PaymentPage() {
     try {
       const result = await validateCoupon(couponCode.trim());
       setAppliedCoupon(result);
+      if (aiFineProposal?.coupon_code && couponCode.trim().toUpperCase() === aiFineProposal.coupon_code.toUpperCase()) {
+        setIsAppliedAiFine(true);
+      } else {
+        setIsAppliedAiFine(false);
+      }
     } catch (err) {
       setAppliedCoupon(null);
+      setIsAppliedAiFine(false);
       setCouponError(getErrorMessage(err, t('common.errors.generic')));
     } finally {
       setIsApplyingCoupon(false);
     }
   }
 
+  const handleApplyAiFineSavings = async () => {
+    if (!aiFineProposal?.coupon_code) return;
+    const codeToApply = aiFineProposal.coupon_code;
+    setCouponCode(codeToApply);
+    setIsApplyingCoupon(true);
+    setCouponError(null);
+    try {
+      const result = await validateCoupon(codeToApply);
+      setAppliedCoupon(result);
+      setIsAppliedAiFine(true);
+      toast.success(`AI Savings Applied: ${result.discount_percent}% off fine settlement!`);
+    } catch (err) {
+      setAppliedCoupon(null);
+      setIsAppliedAiFine(false);
+      setCouponError(getErrorMessage(err, 'This discount is no longer available. Your fine remains un-discounted.'));
+    } finally {
+      setIsApplyingCoupon(false);
+    }
+  };
+
   function handleRemoveCoupon() {
     setAppliedCoupon(null);
     setCouponCode('');
     setCouponError(null);
+    setIsAppliedAiFine(false);
   }
 
   useEffect(() => {
@@ -236,7 +294,7 @@ export function PaymentPage() {
     );
   }
 
-  function executeRazorpayCheckout(order: {
+  async function executeRazorpayCheckout(order: {
     order_id: string;
     amount: number;
     currency: string;
@@ -244,7 +302,15 @@ export function PaymentPage() {
     plan_name?: string;
     label?: string;
   }) {
-    const checkout = new window.Razorpay({
+    if (!isDemoOrder({ key: order.key_id, order_id: order.order_id })) {
+      const scriptLoaded = await loadRazorpayCheckout();
+      if (!scriptLoaded || !window.Razorpay) {
+        toast.error(t('payment.razorpayLoadError'));
+        return;
+      }
+    }
+
+    const checkout = createRazorpayCheckout({
       key: order.key_id,
       amount: order.amount * 100,
       currency: order.currency,
@@ -260,6 +326,11 @@ export function PaymentPage() {
             razorpay_payment_id: response.razorpay_payment_id,
             razorpay_signature: response.razorpay_signature,
           });
+          await queryClient.invalidateQueries({ queryKey: membershipKeys.mine });
+          await queryClient.invalidateQueries({ queryKey: membershipKeys.myPayments });
+          if (token) {
+            await loadRecentSavings(token);
+          }
           toast.success(t('payment.paymentSuccessToast'));
           navigate(ROUTES.DASHBOARD);
         } catch (err) {
@@ -287,11 +358,6 @@ export function PaymentPage() {
         } catch (proposalErr) {
           console.warn('Backend proposal endpoint fallback:', proposalErr);
           // Fallback to direct approval gate for test environments
-          const scriptLoaded = await loadRazorpayCheckout();
-          if (!scriptLoaded || !window.Razorpay) {
-            toast.error(t('payment.razorpayLoadError'));
-            return;
-          }
           const order = await acceptUpsell(
             {
               recommended_plan_id: planId,
@@ -301,15 +367,9 @@ export function PaymentPage() {
             },
             token ?? undefined,
           );
-          executeRazorpayCheckout(order);
+          await executeRazorpayCheckout(order);
           return;
         }
-      }
-
-      const scriptLoaded = await loadRazorpayCheckout();
-      if (!scriptLoaded || !window.Razorpay) {
-        toast.error(t('payment.razorpayLoadError'));
-        return;
       }
 
       const order = await createRazorpayOrder({
@@ -317,9 +377,10 @@ export function PaymentPage() {
         label,
         plan_months: months,
         coupon_code: appliedCoupon?.code,
+        child_id: childId,
       });
 
-      executeRazorpayCheckout(order);
+      await executeRazorpayCheckout(order);
     } catch (err) {
       toast.error(getErrorMessage(err, 'Payment could not be completed. No membership change was made.'));
     } finally {
@@ -331,19 +392,13 @@ export function PaymentPage() {
     if (!activeProposal) return;
     setIsApprovingProposal(true);
     try {
-      const scriptLoaded = await loadRazorpayCheckout();
-      if (!scriptLoaded || !window.Razorpay) {
-        toast.error(t('payment.razorpayLoadError'));
-        return;
-      }
-
       const order = await approveCheckoutProposal(
         { proposal_id: activeProposal.proposal_id },
         token ?? undefined,
       );
 
       setIsApprovalModalOpen(false);
-      executeRazorpayCheckout(order);
+      await executeRazorpayCheckout(order);
     } catch (err) {
       toast.error(getErrorMessage(err, 'Proposal approval failed or expired. Please try again.'));
     } finally {
@@ -496,6 +551,96 @@ export function PaymentPage() {
               onConsiderUpgrade={handleConsiderUpgrade}
               onKeepCurrent={handleKeepCurrent}
             />
+          )}
+
+          {/* AI Fine Savings Recommendation Card */}
+          {!planId && aiFineProposal && aiFineProposal.eligible && !aiFineDismissed && (
+            <AIFineSavingsCard
+              proposal={aiFineProposal}
+              isApplied={isAppliedAiFine}
+              onApplySavings={handleApplyAiFineSavings}
+              onDismiss={() => {
+                setAiFineDismissed(true);
+                setAiFineProposal(null);
+              }}
+            />
+          )}
+
+          {/* Contextual AI Safety Check Card with De-congested Human Approval UX */}
+          {isFromGuardianAutopay && (
+            <div
+              data-testid="guardian-autopay-safety-check"
+              className="rounded-2xl border border-purple-200 dark:border-purple-900/60 bg-purple-50/40 dark:bg-purple-950/20 p-5 text-xs space-y-4 shadow-2xs"
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-purple-200/80 dark:border-purple-900/60 pb-3">
+                <div className="flex items-center gap-2">
+                  <Bot className="size-4.5 text-purple-700 dark:text-purple-300 shrink-0" />
+                  <span className="font-extrabold text-purple-950 dark:text-purple-100 text-sm">
+                    AI Safety Check
+                  </span>
+                </div>
+                <Badge variant="warning" className="text-[10px] font-bold px-2.5 py-0.5">
+                  Manual approval required
+                </Badge>
+              </div>
+
+              {/* Single 1-sentence Explanation */}
+              <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                This <strong className="font-bold text-foreground">₹{amount}</strong> fine is above your <strong className="font-bold text-foreground">₹200</strong> Auto-Pay limit, so AI did not pay it automatically.
+              </p>
+
+              {/* 2-Row Clean Summary */}
+              <div className="rounded-xl bg-background/80 dark:bg-card/80 p-3.5 border border-purple-200/60 dark:border-purple-900/40 space-y-2 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Fine</span>
+                  <span className="font-extrabold text-foreground text-sm">₹{amount}</span>
+                </div>
+                <div className="border-t border-border/40 my-1" />
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground font-medium">Auto-Pay limit</span>
+                  <span className="font-bold text-purple-700 dark:text-purple-300">₹200 / fine</span>
+                </div>
+              </div>
+
+              {/* Reassurance Callout */}
+              <div className="rounded-xl border border-amber-300/80 dark:border-amber-800/60 bg-amber-50/50 dark:bg-amber-950/30 p-3 space-y-0.5">
+                <div className="flex items-center gap-1.5 font-bold text-amber-950 dark:text-amber-100 text-xs">
+                  <ShieldAlert className="size-4 text-amber-600 shrink-0" />
+                  <span>Automatic payment blocked</span>
+                </div>
+                <p className="text-[11px] text-amber-900/90 dark:text-amber-200/90 font-medium pl-5">
+                  You remain in control of this payment.
+                </p>
+              </div>
+
+              {/* Primary CTA & Back Link */}
+              <div className="space-y-2.5 pt-1">
+                <Button
+                  size="md"
+                  variant="primary"
+                  data-testid="ai-safety-approve-btn"
+                  onClick={handlePayWithRazorpay}
+                  isLoading={isStartingCheckout}
+                  disabled={isLoadingPlan || !hasValidAmount || Boolean(planError)}
+                  className="w-full rounded-xl font-bold text-xs gap-1.5 shadow-xs py-2.5"
+                >
+                  <Check className="size-4" />
+                  <span>Approve &amp; Pay ₹{amount}</span>
+                </Button>
+
+                <div className="text-center">
+                  <button
+                    type="button"
+                    onClick={() => navigate(ROUTES.GUARDIAN_AUTOPAY)}
+                    className="text-xs font-semibold text-muted-foreground hover:text-foreground inline-flex items-center gap-1 hover:underline"
+                  >
+                    <ArrowLeft className="size-3.5" />
+                    <span>Back to AI Auto-Pay</span>
+                  </button>
+                </div>
+              </div>
+            </div>
           )}
 
           {/* Coupon Code Section */}

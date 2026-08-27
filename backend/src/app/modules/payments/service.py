@@ -1,6 +1,8 @@
 import calendar
 from datetime import datetime
 
+import uuid
+
 import razorpay
 from fastapi import HTTPException, status
 from prisma.errors import UniqueViolationError
@@ -10,6 +12,7 @@ from app.core.config import get_settings
 from app.db.prisma import prisma
 from app.modules.audit_log import service as audit_log_service
 from app.modules.coupons import service as coupons_service
+from app.modules.guardian import service as guardian_service
 from app.modules.loans import service as loans_service
 from app.modules.notifications import service as notifications_service
 from app.modules.payments import repository
@@ -20,6 +23,20 @@ from app.modules.payments.schemas import (
     RazorpayVerifyRequest,
 )
 from app.modules.pricing_plans import repository as pricing_plans_repository
+
+_demo_orders: dict[str, dict] = {}
+
+
+def record_demo_order(order_id: str, amount: int, notes: dict) -> dict:
+    order_data = {
+        "id": order_id,
+        "amount": amount * 100,
+        "currency": "INR",
+        "notes": notes,
+        "provider": "demo",
+    }
+    _demo_orders[order_id] = order_data
+    return order_data
 
 
 def calculate_membership_expiry(payments) -> datetime | None:
@@ -54,18 +71,30 @@ async def resolve_pricing_plan(months: int):
 
 
 async def create_razorpay_order(user: User, payload: PaymentCreate) -> RazorpayOrderOut:
-    client = _get_client()
-
     settings = get_settings()
+    is_demo_mode = settings.payment_gateway_mode == "demo"
+    if not is_demo_mode:
+        client = _get_client()
+
     amount = payload.amount
     label = payload.label
     plan_months = payload.plan_months
+    child_id = payload.child_id
     if settings.app_env != "test":
         if plan_months is not None:
             plan = await resolve_pricing_plan(plan_months)
             amount = plan.price
             plan_months = plan.months
             label = f"{plan.months} month membership"
+        elif child_id is not None:
+            child = await guardian_service._find_child_or_403(user.id, child_id)
+            loans = await loans_service.list_my_loans(child.id)
+            amount = sum(
+                loan.fine_amount for loan in loans if loan.fine_amount > 0 and not loan.fine_paid
+            )
+            label = f"Outstanding library fines ({child.fullName})"
+            if amount <= 0:
+                raise HTTPException(status.HTTP_409_CONFLICT, "No outstanding fines to pay")
         else:
             loans = await loans_service.list_my_loans(user.id)
             amount = sum(
@@ -86,17 +115,33 @@ async def create_razorpay_order(user: User, payload: PaymentCreate) -> RazorpayO
         coupon = await coupons_service.validate_coupon(payload.coupon_code)
         amount = round(amount * (100 - coupon.discount_percent) / 100)
 
+    notes = {
+        "member_id": user.id,
+        "guardian_id": user.id if child_id else "",
+        "child_id": child_id or "",
+        "source": "guardian_autopay" if child_id else "",
+        "label": label,
+        "plan_months": str(plan_months or ""),
+        "coupon_code": payload.coupon_code or "",
+        "fine_settlement_amount": str(fine_settlement_amount or ""),
+    }
+
+    if is_demo_mode:
+        order_id = f"order_demo_{uuid.uuid4().hex[:16]}"
+        record_demo_order(order_id, amount, notes)
+        return RazorpayOrderOut(
+            order_id=order_id,
+            amount=amount,
+            currency="INR",
+            key_id="rzp_demo_key",
+            label=label,
+        )
+
     order = client.order.create(
         {
             "amount": amount * 100,
             "currency": "INR",
-            "notes": {
-                "member_id": user.id,
-                "label": label,
-                "plan_months": str(plan_months or ""),
-                "coupon_code": payload.coupon_code or "",
-                "fine_settlement_amount": str(fine_settlement_amount or ""),
-            },
+            "notes": notes,
         }
     )
 
@@ -112,20 +157,26 @@ async def create_razorpay_order(user: User, payload: PaymentCreate) -> RazorpayO
 async def verify_and_record_razorpay_payment(
     user: User, payload: RazorpayVerifyRequest
 ) -> PaymentOut:
-    client = _get_client()
-
-    try:
-        client.utility.verify_payment_signature(
-            {
-                "razorpay_order_id": payload.razorpay_order_id,
-                "razorpay_payment_id": payload.razorpay_payment_id,
-                "razorpay_signature": payload.razorpay_signature,
-            }
-        )
-    except razorpay.errors.SignatureVerificationError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Payment verification failed"
-        ) from exc
+    is_demo_order = payload.razorpay_order_id.startswith("order_demo_") or payload.razorpay_order_id in _demo_orders
+    if is_demo_order:
+        if payload.razorpay_signature != "demo_signature_valid":
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Payment verification failed"
+            )
+    else:
+        client = _get_client()
+        try:
+            client.utility.verify_payment_signature(
+                {
+                    "razorpay_order_id": payload.razorpay_order_id,
+                    "razorpay_payment_id": payload.razorpay_payment_id,
+                    "razorpay_signature": payload.razorpay_signature,
+                }
+            )
+        except razorpay.errors.SignatureVerificationError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST, detail="Payment verification failed"
+            ) from exc
 
     # A signature stays valid for the same order/payment/signature triple, so a network
     # retry or a double-submit re-verifies successfully every time. Short-circuit here
@@ -144,7 +195,15 @@ async def verify_and_record_razorpay_payment(
 
     # The order's amount/label/member_id come back from Razorpay's own record of what
     # was created server-side — never re-trusted from the client at this step.
-    order = client.order.fetch(payload.razorpay_order_id)
+    if is_demo_order:
+        order = _demo_orders.get(payload.razorpay_order_id)
+        if not order:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="Demo order not found"
+            )
+    else:
+        order = client.order.fetch(payload.razorpay_order_id)
+
     notes = order.get("notes") or {}
     if str(notes.get("member_id")) != str(user.id) and str(notes.get("guardian_id")) != str(user.id):
         raise HTTPException(
@@ -182,16 +241,47 @@ async def verify_and_record_razorpay_payment(
             # with no plan behind it is a fine payment, so settle what it covers (see
             # settle_fines_for_member).
             if plan_months is None:
+                order_child_id = notes.get("child_id") or None
+                target_member_id = user.id
+                if order_child_id:
+                    child = await guardian_service._find_child_or_403(user.id, order_child_id)
+                    target_member_id = child.id
                 await loans_service.settle_fines_for_member(
-                    user.id, fine_settlement_amount, client=tx
+                    target_member_id, fine_settlement_amount, client=tx
                 )
+                if coupon_code:
+                    savings = max(0, fine_settlement_amount - amount)
+                    discount_pct = round((savings * 100) / fine_settlement_amount) if fine_settlement_amount > 0 else 0
+                    await audit_log_service.record(
+                        actor_id=user.id,
+                        action="AI_FINE_SAVINGS_VERIFIED",
+                        metadata={
+                            "user_id": user.id,
+                            "original_amount": fine_settlement_amount,
+                            "discounted_amount": amount,
+                            "savings_amount": savings,
+                            "discount_percent": discount_pct,
+                            "coupon_code": coupon_code,
+                            "razorpay_payment_id": payload.razorpay_payment_id,
+                            "razorpay_order_id": payload.razorpay_order_id,
+                        },
+                        client=tx,
+                    )
             await notifications_service.create_notification(
                 user.id,
                 "payment-received",
                 f"Payment of ₹{amount} received for {label}.",
                 client=tx,
             )
-            if notes.get("source") == "ai_upsell":
+            proposal_id = notes.get("proposal_id")
+            if proposal_id:
+                proposal = await tx.agentcheckoutproposal.find_unique(where={"proposalId": proposal_id})
+                if proposal and proposal.status == "APPROVED":
+                    await tx.agentcheckoutproposal.update(
+                        where={"proposalId": proposal_id},
+                        data={"status": "COMPLETED"},
+                    )
+            if notes.get("source") in ("ai_upsell", "agent_checkout"):
                 await audit_log_service.record(
                     actor_id=user.id,
                     action="UPSELL_VERIFIED",
@@ -201,11 +291,11 @@ async def verify_and_record_razorpay_payment(
                         "razorpay_payment_id": payload.razorpay_payment_id,
                         "razorpay_order_id": payload.razorpay_order_id,
                         "amount": amount,
-                        "source": "ai_upsell",
+                        "source": notes.get("source"),
                     },
                     client=tx,
                 )
-            if notes.get("source") == "guardian_autopay":
+            if notes.get("source") == "guardian_autopay" or notes.get("child_id"):
                 charge_id = notes.get("charge_id")
                 if charge_id:
                     await tx.loan.update(

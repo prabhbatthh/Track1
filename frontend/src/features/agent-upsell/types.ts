@@ -23,6 +23,16 @@ export interface UpsellEvaluateResponse {
   ai_generated: boolean;
 }
 
+export interface AIFineSavingsEvaluateResponse {
+  eligible: boolean;
+  fine_amount: number;
+  discount_percent: number;
+  savings_amount: number;
+  discounted_amount: number;
+  coupon_code: string | null;
+  rationale: string | null;
+}
+
 export interface UpsellAcceptRequest {
   recommended_plan_id: string;
   current_plan_id: string;

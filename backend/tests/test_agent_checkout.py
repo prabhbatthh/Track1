@@ -166,7 +166,10 @@ async def test_approve_checkout_proposal_valid():
     mock_rzp_client = MagicMock()
     mock_rzp_client.order.create.return_value = {"id": "order_agent_checkout_123"}
 
-    with patch("app.modules.payments.service._get_client", return_value=mock_rzp_client):
+    with patch("app.modules.payments.service._get_client", return_value=mock_rzp_client), \
+         patch("app.modules.agent_upsell.service.get_settings") as mock_settings:
+        mock_settings.return_value.payment_gateway_mode = "razorpay"
+        mock_settings.return_value.razorpay_key_id = "rzp_test_mock"
         # Step 2: Approve proposal
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
             app_res = await client.post(

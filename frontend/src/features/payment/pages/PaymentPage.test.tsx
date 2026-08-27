@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
 
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PaymentPage } from './PaymentPage';
 import * as agentUpsellApi from '@/features/agent-upsell';
 
@@ -10,6 +11,7 @@ vi.mock('@/features/agent-upsell', async (importOriginal) => {
   return {
     ...actual,
     evaluateUpsell: vi.fn(),
+    evaluateFineSavings: vi.fn().mockResolvedValue({ eligible: false }),
     acceptUpsell: vi.fn(),
     createCheckoutProposal: vi.fn(),
     approveCheckoutProposal: vi.fn(),
@@ -56,6 +58,14 @@ const mockUpsellProposal = {
   ai_generated: true,
 };
 
+function renderWithQueryClient(ui: React.ReactNode, queryClient = new QueryClient()) {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      {ui}
+    </QueryClientProvider>
+  );
+}
+
 describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -64,7 +74,7 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
   it('renders AI upsell proposal when eligible', async () => {
     vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue(mockUpsellProposal);
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/payment?plan=1m&label=1%20Month']}>
         <Routes>
           <Route path="/payment" element={<PaymentPage />} />
@@ -81,7 +91,7 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
   it('shows confirmation notification and indicator when user selects recommendation without initiating payment', async () => {
     vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue(mockUpsellProposal);
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/payment?plan=1m&label=1%20Month']}>
         <Routes>
           <Route path="/payment" element={<PaymentPage />} />
@@ -153,7 +163,7 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
       on: vi.fn(),
     }));
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/payment?plan=1m&label=1%20Month']}>
         <Routes>
           <Route path="/payment" element={<PaymentPage />} />
@@ -193,7 +203,7 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
   it('renders AISavingsPanel with AI RECOMMENDED attribution when upgraded via AI proposal', async () => {
     vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue(mockUpsellProposal);
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/payment?plan=1m&label=1%20Month']}>
         <Routes>
           <Route path="/payment" element={<PaymentPage />} />
@@ -222,7 +232,7 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
       eligible: false,
     });
 
-    render(
+    renderWithQueryClient(
       <MemoryRouter initialEntries={['/payment?plan=12m&label=12%20Month']}>
         <Routes>
           <Route path="/payment" element={<PaymentPage />} />
@@ -237,5 +247,61 @@ describe('PaymentPage — AI Upsell Selection & Consent Gate UX', () => {
     expect(screen.getByTestId('yearly-value-badge')).toHaveTextContent(/YEARLY VALUE/i);
     expect(screen.queryByTestId('ai-recommended-badge')).not.toBeInTheDocument();
     expect(screen.getByTestId('ai-savings-amount')).toHaveTextContent(/₹2,997/);
+  });
+
+  it('renders AI Safety Check callout with explicit Approve & Pay CTA when navigated from Guardian Auto-Pay review flow (?source=guardian_autopay)', async () => {
+    vi.mocked(agentUpsellApi.evaluateFineSavings).mockResolvedValue({
+      eligible: false,
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/payment?amount=400&label=Fine%20owed%3A%20%E2%82%B9400&source=guardian_autopay']}>
+        <Routes>
+          <Route path="/payment" element={<PaymentPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('guardian-autopay-safety-check')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/AI Safety Check/i)).toBeInTheDocument();
+    expect(screen.getByText(/Manual approval required/i)).toBeInTheDocument();
+    expect(
+      screen.getByText((_, element) => {
+        return (
+          element?.tagName.toLowerCase() === 'p' &&
+          element.textContent?.includes('fine is above your') === true &&
+          element.textContent?.includes('Auto-Pay limit') === true
+        );
+      })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/Automatic payment blocked/i)).toBeInTheDocument();
+    expect(screen.getByText(/You remain in control of this payment/i)).toBeInTheDocument();
+
+    const approveBtn = screen.getByTestId('ai-safety-approve-btn');
+    expect(approveBtn).toBeInTheDocument();
+    expect(approveBtn).toHaveTextContent(/Approve & Pay ₹400/i);
+  });
+
+  it('does NOT render AI Safety Check callout on normal membership payment flows', async () => {
+    vi.mocked(agentUpsellApi.evaluateUpsell).mockResolvedValue({
+      eligible: false,
+    });
+
+    renderWithQueryClient(
+      <MemoryRouter initialEntries={['/payment?plan=1m&label=1%20Month']}>
+        <Routes>
+          <Route path="/payment" element={<PaymentPage />} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText(/1 Month Membership/i)).toBeInTheDocument();
+    });
+
+    expect(screen.queryByTestId('guardian-autopay-safety-check')).not.toBeInTheDocument();
   });
 });

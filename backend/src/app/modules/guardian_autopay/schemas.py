@@ -109,6 +109,21 @@ class AutopaySimulateTrustRequest(BaseModel):
     action: str = Field("simulate_late_return", description="Demo action: 'simulate_late_return' or 'restore'")
 
 
+class AutopayActivityItemOut(BaseModel):
+    id: str = Field(..., description="Unique ID of activity item")
+    type: str = Field(..., description="Type of activity: 'autonomous_paid', 'guardian_approved', or 'blocked'")
+    title: str = Field(..., description="User-facing title: 'Automatically paid', 'Guardian approved payment', or 'Payment blocked'")
+    badge: str = Field(..., description="Badge text: 'AI Auto-Pay', 'Manual approval', or 'Blocked & Notified'")
+    description: str = Field(..., description="User-facing description")
+    amount: int = Field(..., description="Fine amount in INR")
+    child_name: str = Field(..., description="Full name of linked child member")
+    timestamp: str = Field(..., description="ISO timestamp of activity event")
+
+
+class AutopayActivityResponse(BaseModel):
+    items: List[AutopayActivityItemOut] = Field(..., description="Recent activity items ordered newest first")
+
+
 
 
 
