@@ -146,6 +146,11 @@ const AdminPaymentsPage = lazy(() =>
     default: m.AdminPaymentsPage,
   })),
 );
+const AdminAutopayJudgeDemoPage = lazy(() =>
+  import('@/features/admin/pages/AdminAutopayJudgeDemoPage').then((m) => ({
+    default: m.AdminAutopayJudgeDemoPage,
+  })),
+);
 const ITHeadDashboardPage = lazy(() =>
   import('@/features/it-head/pages/ITHeadDashboardPage').then((m) => ({
     default: m.ITHeadDashboardPage,
@@ -249,6 +254,7 @@ const router = createBrowserRouter([
       { path: relative(ROUTES.ADMIN_AGENT_CATALOG), element: withSuspense(<AgentCatalogPage />) },
       { path: relative(ROUTES.ADMIN_MEMBERS), element: withSuspense(<AdminMembersPage />) },
       { path: relative(ROUTES.ADMIN_PAYMENTS), element: withSuspense(<AdminPaymentsPage />) },
+      { path: relative(ROUTES.ADMIN_AUTOPAY_DEMO), element: withSuspense(<AdminAutopayJudgeDemoPage />) },
     ],
   },
   {
@@ -262,6 +268,7 @@ const router = createBrowserRouter([
       { path: relative(ROUTES.IT_HEAD), element: withSuspense(<ITHeadDashboardPage />) },
       { path: relative(ROUTES.IT_HEAD_AGENT_CATALOG), element: withSuspense(<AgentCatalogPage />) },
       { path: relative(ROUTES.IT_HEAD_REPORTS), element: withSuspense(<ITHeadReportsPage />) },
+      { path: relative(ROUTES.IT_HEAD_AUTOPAY_DEMO), element: withSuspense(<AdminAutopayJudgeDemoPage />) },
     ],
   },
   {

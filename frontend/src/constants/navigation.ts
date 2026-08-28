@@ -53,6 +53,7 @@ export const adminOverviewNavItem: NavItem = {
 export const adminNavigation: NavItem[] = [
   adminOverviewNavItem,
   { label: 'nav.agentCatalog', path: ROUTES.ADMIN_AGENT_CATALOG, icon: Bot },
+  { label: 'nav.autopayJudgeDemo', path: ROUTES.ADMIN_AUTOPAY_DEMO, icon: Cpu },
   { label: 'nav.members', path: ROUTES.ADMIN_MEMBERS, icon: Users },
   { label: 'nav.payments', path: ROUTES.ADMIN_PAYMENTS, icon: Receipt },
   { label: 'nav.community', path: ROUTES.COMMUNITY, icon: MessageCircle },
@@ -85,6 +86,7 @@ export const itHeadOverviewNavItem: NavItem = {
 export const itHeadNavigation: NavItem[] = [
   itHeadOverviewNavItem,
   { label: 'nav.agentCatalog', path: ROUTES.IT_HEAD_AGENT_CATALOG, icon: Bot },
+  { label: 'nav.autopayJudgeDemo', path: ROUTES.IT_HEAD_AUTOPAY_DEMO, icon: Cpu },
   { label: 'nav.itHeadReports', path: ROUTES.IT_HEAD_REPORTS, icon: FileBarChart },
   { label: 'nav.community', path: ROUTES.COMMUNITY, icon: MessageCircle },
   { label: 'nav.events', path: ROUTES.EVENTS, icon: Calendar },

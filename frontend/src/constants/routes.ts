@@ -30,8 +30,10 @@ export const ROUTES = {
   ADMIN: '/admin',
   ADMIN_MEMBERS: '/admin/members',
   ADMIN_PAYMENTS: '/admin/payments',
+  ADMIN_AUTOPAY_DEMO: '/admin/autopay-demo',
   IT_HEAD: '/it-head',
   IT_HEAD_REPORTS: '/it-head/reports',
+  IT_HEAD_AUTOPAY_DEMO: '/it-head/autopay-demo',
   GUARDIAN: '/guardian',
   GUARDIAN_AUTOPAY: '/guardian/autopay',
 } as const;

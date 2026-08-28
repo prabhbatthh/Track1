@@ -22,6 +22,7 @@ from app.core.logging import configure_logging
 from app.core.rate_limit import limiter
 from app.db.prisma import prisma
 from app.modules.admin.router import router as admin_router
+from app.modules.admin.autopay_demo_router import router as autopay_demo_router
 from app.modules.agent.router import router as agent_router
 from app.modules.agent_upsell.router import router as agent_upsell_router
 from app.modules.auth.router import router as auth_router
@@ -305,6 +306,7 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     app.include_router(notifications_router, prefix=settings.api_prefix)
     app.include_router(reviews_router, prefix=settings.api_prefix)
     app.include_router(admin_router, prefix=settings.api_prefix)
+    app.include_router(autopay_demo_router, prefix=settings.api_prefix)
     app.include_router(billing_requests_router, prefix=settings.api_prefix)
     app.include_router(pricing_plans_router, prefix=settings.api_prefix)
     app.include_router(coupons_router, prefix=settings.api_prefix)

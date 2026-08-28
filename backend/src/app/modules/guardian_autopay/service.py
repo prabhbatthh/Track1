@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 import logging
 from typing import Optional, Tuple
 
@@ -466,7 +466,9 @@ class AutonomousGatewayAdapter:
     """
 
     @staticmethod
-    async def capture_autonomous_payment(loan_id: str, amount: int) -> dict[str, str]:
+    async def capture_autonomous_payment(
+        loan_id: str, amount: int, simulate_failure: bool = False
+    ) -> dict[str, str]:
         settings = get_settings()
 
         # Security check: Live mode credentials must NEVER be used for autonomous demo execution
@@ -477,13 +479,19 @@ class AutonomousGatewayAdapter:
                 detail="Live Razorpay credentials cannot be used for autonomous execution",
             )
 
+        if simulate_failure:
+            raise RuntimeError("Simulated payment gateway processing timeout / network failure")
+
         capture = await _simulate_gateway_capture(loan_id, amount)
         capture["settlement_type"] = "autonomous_simulated"
         return capture
 
 
 async def execute_autonomous_autopay(
-    loan_id: str, guardian_id: Optional[str] = None
+    loan_id: str,
+    guardian_id: Optional[str] = None,
+    simulate_failure: bool = False,
+    override_amount: Optional[int] = None,
 ) -> AutopayAutonomousResponse:
     """Execute zero-click server-side autonomous fine settlement for a pre-approved policy.
 
@@ -538,7 +546,7 @@ async def execute_autonomous_autopay(
     now = datetime.now(UTC)
     end = loan.returnedAt or now
     days_late = max(0, (end.date() - loan.dueDate.date()).days)
-    authoritative_amount = days_late * FINE_PER_DAY
+    authoritative_amount = override_amount if override_amount is not None else (days_late * FINE_PER_DAY)
 
     if authoritative_amount <= 0:
         raise HTTPException(
@@ -698,7 +706,9 @@ async def execute_autonomous_autopay(
 
     # 5. Perform server-side autonomous payment capture via Gateway Abstraction
     try:
-        capture = await AutonomousGatewayAdapter.capture_autonomous_payment(loan.id, authoritative_amount)
+        capture = await AutonomousGatewayAdapter.capture_autonomous_payment(
+            loan.id, authoritative_amount, simulate_failure=simulate_failure
+        )
         simulated_payment_id = capture["payment_id"]
         simulated_order_id = capture["order_id"]
         settlement_type = capture.get("settlement_type", "autonomous_simulated")
@@ -885,42 +895,30 @@ async def reset_demo_loans(guardian_id: str):
     due_3_days_ago = now - timedelta(days=3)
     due_5_days_ago = now - timedelta(days=5)
 
-    unpaid_loans = await prisma.loan.find_many(
+    # Delete prior unpaid demo loans to guarantee fresh deterministic fine amounts
+    await prisma.loan.delete_many(
         where={"memberId": child_id, "finePaid": False, "returnedAt": None}
     )
 
-    within_cap_loan = None
-    over_cap_loan = None
+    within_cap_loan = await prisma.loan.create(
+        data={
+            "memberId": child_id,
+            "bookId": book.id,
+            "createdById": guardian_id,
+            "dueDate": due_3_days_ago,
+            "finePaid": False,
+        }
+    )
 
-    for loan in unpaid_loans:
-        days_late = max(0, (now.date() - loan.dueDate.date()).days)
-        amt = days_late * 50
-        if amt > 0 and amt <= policy.per_transaction_cap and within_cap_loan is None:
-            within_cap_loan = loan
-        elif amt > policy.per_transaction_cap and over_cap_loan is None:
-            over_cap_loan = loan
-
-    if within_cap_loan is None:
-        within_cap_loan = await prisma.loan.create(
-            data={
-                "memberId": child_id,
-                "bookId": book.id,
-                "createdById": guardian_id,
-                "dueDate": due_3_days_ago,
-                "finePaid": False,
-            }
-        )
-
-    if over_cap_loan is None:
-        over_cap_loan = await prisma.loan.create(
-            data={
-                "memberId": child_id,
-                "bookId": book.id,
-                "createdById": guardian_id,
-                "dueDate": due_5_days_ago,
-                "finePaid": False,
-            }
-        )
+    over_cap_loan = await prisma.loan.create(
+        data={
+            "memberId": child_id,
+            "bookId": book.id,
+            "createdById": guardian_id,
+            "dueDate": due_5_days_ago,
+            "finePaid": False,
+        }
+    )
 
     return AutopayDemoLoansResponse(
         within_cap_loan_id=within_cap_loan.id,
@@ -1035,7 +1033,11 @@ async def simulate_trust_history(guardian_id: str, action: str):
 
     now = datetime.now(UTC)
 
-    if action == "simulate_late_return":
+    if action in ["simulate_late_return", "late"]:
+        # Delete prior demo returned loans first
+        await prisma.loan.delete_many(
+            where={"memberId": child_id, "returnedAt": {"not": None}}
+        )
         # Create 10 late returned loans -> 0% rate -> LOW trust (multiplier 0.7)
         for i in range(10):
             due = now - timedelta(days=40 - i)
@@ -1050,10 +1052,38 @@ async def simulate_trust_history(guardian_id: str, action: str):
                     "finePaid": True,
                 }
             )
-    elif action == "restore":
-        # Delete demo returned loans or add 15 on-time returned loans -> 100% -> HIGH/BASELINE
+    elif action in ["simulate_responsible_history", "responsible"]:
+        # Delete prior demo returned loans first
         await prisma.loan.delete_many(
             where={"memberId": child_id, "returnedAt": {"not": None}}
+        )
+        # Create 10 on-time returned loans -> 100% rate -> HIGH trust (multiplier 1.2)
+        for i in range(10):
+            due = now - timedelta(days=40 - i)
+            returned = due  # on time
+            await prisma.loan.create(
+                data={
+                    "memberId": child_id,
+                    "bookId": book.id,
+                    "createdById": guardian_id,
+                    "dueDate": due,
+                    "returnedAt": returned,
+                    "finePaid": True,
+                }
+            )
+    elif action in ["restore", "reset"]:
+        # Delete demo returned loans -> 0 returned loans -> BASELINE trust (multiplier 1.0)
+        await prisma.loan.delete_many(
+            where={"memberId": child_id, "returnedAt": {"not": None}}
+        )
+        # Reset policy state and cap to default
+        await prisma.guardianautopaypolicy.update(
+            where={"guardianLinkId": link.id},
+            data={"enabled": True, "perTransactionCap": 200},
+        )
+        # Clear demo payments so monthly spend is clean on trust reset
+        await prisma.payment.delete_many(
+            where={"userId": child_id, "label": {"contains": "Auto-Pay"}}
         )
 
     # Recalculate trust & update policy snapshot
@@ -1177,6 +1207,570 @@ async def get_activity_history(guardian_id: str) -> AutopayActivityResponse:
             )
 
     return AutopayActivityResponse(items=activity_items)
+
+
+async def admin_simulate_trust_history(action: str):
+    """Admin Judge Demo endpoint to simulate child return history and observe live trust engine recalculations."""
+    link = await prisma.guardianlink.find_first()
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked demo guardian found",
+        )
+
+    guardian_id = link.guardianId
+    child_id = link.memberId
+
+    internal_action = "restore"
+    if action in ["responsible", "simulate_responsible_history"]:
+        internal_action = "simulate_responsible_history"
+    elif action in ["late", "simulate_late_return"]:
+        internal_action = "simulate_late_return"
+    elif action in ["reset", "restore"]:
+        internal_action = "restore"
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown trust simulation action '{action}'. Supported: responsible, late, reset",
+        )
+
+    policy_before = await prisma.guardianautopaypolicy.find_unique(where={"guardianLinkId": link.id})
+    prev_tier = policy_before.currentTrustTier or "BASELINE"
+    prev_cap = policy_before.effectiveTransactionCap or policy_before.perTransactionCap
+
+    # Execute simulation against the real trust engine
+    trust_status = await simulate_trust_history(guardian_id, internal_action)
+
+    policy_after = await prisma.guardianautopaypolicy.find_unique(where={"guardianLinkId": link.id})
+    new_tier = policy_after.currentTrustTier or "BASELINE"
+    new_cap = policy_after.effectiveTransactionCap or policy_after.perTransactionCap
+
+    # Record specific Admin Judge Simulation Audit Log
+    try:
+        await audit_log_service.record(
+            actor_id=guardian_id,
+            action="GUARDIAN_AUTOPAY_TRUST_SIMULATED",
+            metadata={
+                "guardian_id": guardian_id,
+                "child_id": child_id,
+                "action": internal_action,
+                "previous_trust_tier": prev_tier,
+                "new_trust_tier": new_tier,
+                "previous_effective_cap": prev_cap,
+                "new_effective_cap": new_cap,
+                "on_time_return_rate": trust_status.on_time_return_rate,
+                "multiplier": trust_status.multiplier,
+                "reason": f"Judge Trust Simulation ({action}) applied live",
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record GUARDIAN_AUTOPAY_TRUST_SIMULATED audit log: %s", exc)
+
+    return {
+        "status": "SIMULATED",
+        "action": action,
+        "previous_trust_tier": prev_tier,
+        "new_trust_tier": new_tier,
+        "previous_effective_cap": prev_cap,
+        "new_effective_cap": new_cap,
+        "multiplier": trust_status.multiplier,
+        "on_time_return_rate": trust_status.on_time_return_rate,
+        "effective_transaction_cap": trust_status.effective_transaction_cap,
+        "reasoning": trust_status.reasoning,
+        "message": f"Trust Simulation applied: {prev_tier} ({prev_cap}) → {new_tier} ({new_cap})",
+    }
+
+
+async def update_admin_autopay_demo_policy(
+    enabled: Optional[bool] = None,
+    per_transaction_cap: Optional[int] = None,
+):
+    """Admin Judge Demo endpoint to interactively modify demo guardian policy state and cap."""
+    link = await prisma.guardianlink.find_first()
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked demo guardian found",
+        )
+
+    guardian_id = link.guardianId
+    child_id = link.memberId
+
+    policy_before = await prisma.guardianautopaypolicy.find_unique(where={"guardianLinkId": link.id})
+    if not policy_before:
+        policy_before = await prisma.guardianautopaypolicy.create(
+            data={
+                "guardianLinkId": link.id,
+                "enabled": True,
+                "perTransactionCap": 200,
+                "monthlySpendingCap": 1000,
+                "allowedChargeTypes": ["fine"],
+                "currentTrustTier": "BASELINE",
+                "effectiveTransactionCap": 200,
+            }
+        )
+
+    prev_enabled = policy_before.enabled
+    prev_cap = policy_before.perTransactionCap
+    new_enabled = enabled if enabled is not None else prev_enabled
+    new_cap = per_transaction_cap if per_transaction_cap is not None else prev_cap
+
+    # Recalculate effective cap from current trust multiplier
+    from app.modules.guardian_autopay.trust_scoring import calculate_trust_tier
+    trust_res = await calculate_trust_tier(child_id)
+    theoretical = int(new_cap * trust_res.multiplier)
+    # Hard ceiling is 200
+    hard_ceiling = 200
+    new_effective = min(theoretical, new_cap, hard_ceiling)
+
+    updated_policy = await prisma.guardianautopaypolicy.update(
+        where={"guardianLinkId": link.id},
+        data={
+            "enabled": new_enabled,
+            "perTransactionCap": new_cap,
+            "effectiveTransactionCap": new_effective,
+            "updatedAt": datetime.now(UTC),
+        },
+    )
+
+    # Record Audit Log
+    try:
+        details_list = []
+        if prev_enabled != new_enabled:
+            details_list.append(f"enabled: {prev_enabled} → {new_enabled}")
+        if prev_cap != new_cap:
+            details_list.append(f"perTransactionCap: ₹{prev_cap} → ₹{new_cap}")
+
+        change_desc = ", ".join(details_list) if details_list else "Policy refreshed"
+
+        await audit_log_service.record(
+            actor_id=guardian_id,
+            action="GUARDIAN_AUTOPAY_DEMO_POLICY_CHANGED",
+            metadata={
+                "guardian_id": guardian_id,
+                "child_id": child_id,
+                "previous_enabled": prev_enabled,
+                "new_enabled": new_enabled,
+                "previous_per_transaction_cap": prev_cap,
+                "new_per_transaction_cap": new_cap,
+                "effective_transaction_cap": new_effective,
+                "details": change_desc,
+                "reason": f"Judge Policy Control applied ({change_desc})",
+            },
+        )
+    except Exception as exc:
+        logger.error("Failed to record GUARDIAN_AUTOPAY_DEMO_POLICY_CHANGED audit log: %s", exc)
+
+    return {
+        "status": "UPDATED",
+        "enabled": updated_policy.enabled,
+        "per_transaction_cap": updated_policy.perTransactionCap,
+        "effective_transaction_cap": new_effective,
+        "trust_tier": updated_policy.currentTrustTier,
+        "multiplier": trust_res.multiplier,
+        "theoretical_cap": theoretical,
+        "hard_safety_ceiling": hard_ceiling,
+        "message": f"Demo policy updated: enabled={new_enabled}, cap=₹{new_cap} (effective: ₹{new_effective})",
+    }
+
+
+async def get_admin_autopay_demo_overview():
+    """Retrieve comprehensive demo child trust & safety diagnostics for Admin Judge Demo Controls."""
+    link = await prisma.guardianlink.find_first(
+        include={"member": True, "guardian": True}
+    )
+    if not link:
+        return {
+            "has_child": False,
+            "child_name": "Not available",
+            "child_id": "Not available",
+            "guardian_name": "Not available",
+            "guardian_id": "Not available",
+            "enabled": True,
+            "trust_tier": "BASELINE",
+            "multiplier": 1.0,
+            "on_time_return_rate": 0.0,
+            "on_time_returns": 0,
+            "total_returns": 0,
+            "sample_size": 0,
+            "per_transaction_cap": 200,
+            "monthly_spending_cap": 1000,
+            "effective_transaction_cap": 200,
+            "theoretical_cap": 200,
+            "hard_safety_ceiling": 200,
+            "explanation": "The effective autonomous cap is the amount the AI is currently permitted to settle automatically. The hard ceiling cannot be exceeded.",
+        }
+
+    guardian_id = link.guardianId
+    child_id = link.memberId
+    child_name = "Demo Child"
+    guardian_name = "Demo Guardian"
+
+    policy_rec = await get_or_create_policy(guardian_id, child_id)
+    trust_status = await get_trust_status(guardian_id)
+    demo_loans = await get_demo_loans(guardian_id)
+
+    theoretical_cap = int(policy_rec.per_transaction_cap * trust_status.multiplier)
+    hard_ceiling = 200
+    effective_cap = min(theoretical_cap, policy_rec.per_transaction_cap, hard_ceiling)
+
+    monthly_spent = await calculate_monthly_autopay_spend(child_id)
+    monthly_cap = policy_rec.monthly_spending_cap
+    remaining_monthly_authority = max(0, monthly_cap - monthly_spent)
+
+    return {
+        "has_child": True,
+        "child_name": child_name,
+        "child_id": child_id,
+        "guardian_name": guardian_name,
+        "guardian_id": guardian_id,
+        "enabled": policy_rec.enabled,
+        "trust_tier": trust_status.trust_tier,
+        "multiplier": trust_status.multiplier,
+        "on_time_return_rate": trust_status.on_time_return_rate,
+        "on_time_returns": trust_status.on_time_returns,
+        "total_returns": trust_status.total_returns,
+        "sample_size": trust_status.sample_size,
+        "per_transaction_cap": policy_rec.per_transaction_cap,
+        "monthly_spending_cap": monthly_cap,
+        "monthly_spent": monthly_spent,
+        "remaining_monthly_authority": remaining_monthly_authority,
+        "effective_transaction_cap": effective_cap,
+        "theoretical_cap": theoretical_cap,
+        "hard_safety_ceiling": hard_ceiling,
+        "within_cap_loan_id": demo_loans.within_cap_loan_id,
+        "within_cap_amount": demo_loans.within_cap_amount,
+        "over_cap_loan_id": demo_loans.over_cap_loan_id,
+        "over_cap_amount": demo_loans.over_cap_amount,
+        "explanation": "The effective autonomous cap is the minimum of theoretical trust authority, guardian-configured limit, and hard ceiling.",
+    }
+
+
+async def simulate_admin_autopay_demo_monthly_spend(action: str):
+    """Simulate monthly spending state (e.g. ₹900 spend out of ₹1000 cap) for Admin Judge Controls."""
+    link = await prisma.guardianlink.find_first()
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked demo guardian found",
+        )
+
+    child_id = link.memberId
+
+    if action == "simulate_900":
+        await prisma.payment.delete_many(
+            where={"userId": child_id, "label": {"contains": "Auto-Pay"}}
+        )
+        now = datetime.now(UTC)
+        await prisma.payment.create(
+            data={
+                "userId": child_id,
+                "amount": 900,
+                "status": "success",
+                "label": "Auto-Pay Demo Cumulative Spend",
+                "createdAt": now,
+            }
+        )
+        await audit_log_service.record(
+            actor_id=link.guardianId,
+            action="GUARDIAN_AUTOPAY_DEMO_MONTHLY_SIMULATED",
+            metadata={
+                "simulated_spend": 900,
+                "monthly_cap": 1000,
+                "remaining_authority": 100,
+                "child_id": child_id,
+                "reason": "Simulated ₹900 existing monthly spend for Demo Child",
+            },
+        )
+        monthly_spent = await calculate_monthly_autopay_spend(child_id)
+        return {
+            "status": "SIMULATED",
+            "monthly_spent": monthly_spent,
+            "monthly_spending_cap": 1000,
+            "remaining_authority": max(0, 1000 - monthly_spent),
+            "message": f"✓ Simulated ₹{monthly_spent} existing monthly spend. Remaining monthly authority: ₹{max(0, 1000 - monthly_spent)}.",
+        }
+
+    elif action == "reset":
+        await prisma.payment.delete_many(
+            where={"userId": child_id, "label": {"contains": "Auto-Pay"}}
+        )
+        await audit_log_service.record(
+            actor_id=link.guardianId,
+            action="GUARDIAN_AUTOPAY_DEMO_MONTHLY_RESET",
+            metadata={
+                "monthly_spent": 0,
+                "monthly_cap": 1000,
+                "remaining_authority": 1000,
+                "child_id": child_id,
+                "reason": "Reset monthly spend to ₹0 for Demo Child",
+            },
+        )
+        return {
+            "status": "RESET",
+            "monthly_spent": 0,
+            "monthly_spending_cap": 1000,
+            "remaining_authority": 1000,
+            "message": "✓ Monthly spending reset to ₹0. Remaining monthly authority: ₹1000.",
+        }
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown monthly spend action '{action}'. Supported: simulate_900, reset",
+        )
+
+
+async def simulate_admin_autopay_demo_scenario(scenario: str, amount: Optional[int] = None):
+    """Execute bounded or custom payment demo scenario for Admin Judge Demo Controls."""
+    link = await prisma.guardianlink.find_first()
+    if not link:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No linked demo guardian found",
+        )
+
+    guardian_id = link.guardianId
+    demo_loans = await reset_demo_loans(guardian_id)
+
+    if scenario == "custom" or (amount is not None and scenario not in ["within_limit", "boundary_100", "over_monthly_101", "over_limit", "simulate_failure"]):
+        if amount is None:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Custom fine amount is required for custom scenario",
+            )
+        if not isinstance(amount, int) or amount <= 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Custom fine amount must be a positive integer greater than ₹0",
+            )
+
+        try:
+            res = await execute_autonomous_autopay(
+                demo_loans.within_cap_loan_id, guardian_id=guardian_id, override_amount=amount
+            )
+            return {
+                "status": "EXECUTED",
+                "badge": "AUTONOMOUS PAYMENT EXECUTED",
+                "amount": amount,
+                "policy": f"Custom fine evaluated (₹{amount})",
+                "result": "Payment recorded",
+                "audit": "Created",
+                "payment_id": res.payment_id,
+                "razorpay_payment_id": res.razorpay_payment_id,
+                "razorpay_order_id": res.razorpay_order_id,
+                "message": f"✓ Autonomous payment of ₹{amount} executed successfully.",
+            }
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_400_BAD_REQUEST and ("Custom fine amount" in str(exc.detail) or "No linked" in str(exc.detail)):
+                raise
+            return {
+                "status": "BLOCKED",
+                "badge": "AUTONOMOUS PAYMENT BLOCKED",
+                "amount": amount,
+                "reason": exc.detail,
+                "result": "No payment execution",
+                "guardian_notification": "Created",
+                "audit": "Created",
+                "message": f"✕ Autonomous payment blocked: {exc.detail}",
+            }
+
+    if scenario == "within_limit":
+        try:
+            res = await execute_autonomous_autopay(demo_loans.within_cap_loan_id, guardian_id=guardian_id)
+            return {
+                "status": "EXECUTED",
+                "badge": "AUTONOMOUS PAYMENT EXECUTED",
+                "amount": res.amount,
+                "policy": "Within limit",
+                "result": "Payment recorded",
+                "audit": "Created",
+                "payment_id": res.payment_id,
+                "razorpay_payment_id": res.razorpay_payment_id,
+                "razorpay_order_id": res.razorpay_order_id,
+                "message": f"✓ Autonomous payment of ₹{res.amount} executed successfully.",
+            }
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_422_UNPROCESSABLE_ENTITY or exc.status_code == status.HTTP_400_BAD_REQUEST:
+                return {
+                    "status": "BLOCKED",
+                    "badge": "AUTONOMOUS PAYMENT BLOCKED",
+                    "amount": 150,
+                    "reason": exc.detail,
+                    "result": "No payment execution",
+                    "guardian_notification": "Created",
+                    "audit": "Created",
+                    "message": f"✕ Autonomous payment blocked: {exc.detail}",
+                }
+            return {
+                "status": "FAILED",
+                "badge": "ERROR",
+                "amount": 150,
+                "policy": "Error",
+                "result": exc.detail,
+                "audit": "Created",
+                "message": str(exc.detail),
+            }
+
+    elif scenario == "boundary_100":
+        try:
+            now = datetime.now(UTC)
+            due_2_days_ago = now - timedelta(days=2)
+            book = await prisma.book.find_first()
+            loan = await prisma.loan.create(
+                data={
+                    "memberId": link.memberId,
+                    "bookId": book.id if book else demo_loans.within_cap_loan_id,
+                    "createdById": guardian_id,
+                    "dueDate": due_2_days_ago,
+                    "finePaid": False,
+                }
+            )
+            res = await execute_autonomous_autopay(loan.id, guardian_id=guardian_id, override_amount=100)
+            return {
+                "status": "EXECUTED",
+                "badge": "AUTONOMOUS PAYMENT EXECUTED",
+                "amount": 100,
+                "policy": "Exact monthly boundary (₹900 + ₹100 = ₹1000)",
+                "result": "Payment recorded",
+                "audit": "Created",
+                "payment_id": res.payment_id,
+                "razorpay_payment_id": res.razorpay_payment_id,
+                "razorpay_order_id": res.razorpay_order_id,
+                "message": "✓ Autonomous payment of ₹100 executed successfully.",
+            }
+        except HTTPException as exc:
+            return {
+                "status": "BLOCKED",
+                "badge": "AUTONOMOUS PAYMENT BLOCKED",
+                "amount": 100,
+                "reason": exc.detail,
+                "result": "No payment execution",
+                "guardian_notification": "Created",
+                "audit": "Created",
+                "message": f"✕ Autonomous payment blocked: {exc.detail}",
+            }
+
+    elif scenario == "over_monthly_101":
+        try:
+            res = await execute_autonomous_autopay(
+                demo_loans.within_cap_loan_id, guardian_id=guardian_id, override_amount=101
+            )
+            return {
+                "status": "EXECUTED_UNEXPECTEDLY",
+                "badge": "UNEXPECTED SUCCESS",
+                "amount": 101,
+                "message": "Payment executed unexpectedly",
+            }
+        except HTTPException as exc:
+            return {
+                "status": "BLOCKED",
+                "badge": "AUTONOMOUS PAYMENT BLOCKED",
+                "amount": 101,
+                "reason": exc.detail,
+                "result": "No payment execution",
+                "guardian_notification": "Created",
+                "audit": "Created",
+                "message": f"✕ Autonomous payment blocked: {exc.detail}",
+            }
+
+    elif scenario == "over_limit":
+        try:
+            res = await execute_autonomous_autopay(demo_loans.over_cap_loan_id, guardian_id=guardian_id)
+            return {
+                "status": "EXECUTED_UNEXPECTEDLY",
+                "badge": "UNEXPECTED SUCCESS",
+                "amount": res.amount,
+                "policy": "Over limit",
+                "result": "Payment recorded unexpectedly",
+                "audit": "Created",
+                "message": "Payment executed unexpectedly",
+            }
+        except HTTPException as exc:
+            return {
+                "status": "BLOCKED",
+                "badge": "AUTONOMOUS PAYMENT BLOCKED",
+                "amount": demo_loans.over_cap_amount,
+                "reason": exc.detail,
+                "result": "No payment execution",
+                "guardian_notification": "Created",
+                "audit": "Created",
+                "message": f"✕ Autonomous payment blocked: {exc.detail}",
+            }
+
+    elif scenario == "simulate_failure":
+        try:
+            await execute_autonomous_autopay(
+                demo_loans.within_cap_loan_id, guardian_id=guardian_id, simulate_failure=True
+            )
+            return {
+                "status": "EXECUTED_UNEXPECTEDLY",
+                "badge": "UNEXPECTED SUCCESS",
+                "amount": 150,
+                "result": "Payment recorded unexpectedly",
+                "message": "Payment executed unexpectedly",
+            }
+        except HTTPException as exc:
+            return {
+                "status": "GATEWAY_FAILURE",
+                "badge": "PAYMENT FAILED SAFELY",
+                "amount": 150,
+                "result": "Payment not recorded",
+                "fine_status": "Unchanged",
+                "audit": "Failure recorded",
+                "message": f"⚠ Payment failed safely: {exc.detail}",
+            }
+
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Unknown scenario '{scenario}'. Supported: within_limit, boundary_100, over_monthly_101, over_limit, custom, simulate_failure",
+        )
+
+
+async def get_admin_autopay_demo_audit_trail():
+    """Retrieve real Prisma audit trail entries for AI Auto-Pay events."""
+    entries = await prisma.auditlogentry.find_many(
+        where={
+            "action": {
+                "in": [
+                    "GUARDIAN_AUTOPAY_AUTONOMOUS_EXECUTED",
+                    "GUARDIAN_AUTOPAY_BLOCKED_OVERCAP",
+                    "GUARDIAN_AUTOPAY_AUTONOMOUS_FAILED",
+                    "GUARDIAN_AUTOPAY_DEMO_POLICY_CHANGED",
+                    "GUARDIAN_AUTOPAY_TRUST_SIMULATED",
+                    "GUARDIAN_AUTOPAY_TRUST_TIER_CHANGED",
+                    "GUARDIAN_AUTOPAY_POLICY_UPDATED",
+                    "GUARDIAN_AUTOPAY_POLICY_CREATED",
+                    "GUARDIAN_AUTOPAY_APPROVED",
+                    "GUARDIAN_AUTOPAY_REJECTED",
+                    "GUARDIAN_AUTOPAY_DEMO_MONTHLY_SIMULATED",
+                    "GUARDIAN_AUTOPAY_DEMO_MONTHLY_RESET",
+                ]
+            }
+        },
+        order={"createdAt": "desc"},
+        take=50,
+    )
+
+    items = []
+    for entry in entries:
+        meta = entry.metadata if isinstance(entry.metadata, dict) else {}
+        items.append(
+            {
+                "id": entry.id,
+                "timestamp": entry.createdAt.isoformat() if entry.createdAt else "",
+                "action": entry.action,
+                "actor_id": entry.actorId,
+                "amount": meta.get("amount"),
+                "child_id": meta.get("child_id") or meta.get("member_id"),
+                "child_name": "Demo Child",
+                "result": "APPROVED" if "EXECUTED" in entry.action or "APPROVED" in entry.action else "BLOCKED" if "BLOCKED" in entry.action or "REJECTED" in entry.action else "FAILED" if "FAILED" in entry.action else "INFO",
+                "reason": meta.get("reason") or meta.get("failure_reason") or meta.get("reason_code"),
+            }
+        )
+    return {"items": items}
+
 
 
 
