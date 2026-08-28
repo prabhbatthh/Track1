@@ -84,7 +84,7 @@ describe('GuardianAutopaySimulator — Production Guardian Control UI', () => {
 
     expect(await screen.findByText(/AI Guardian Auto-Pay/i)).toBeInTheDocument();
     expect(screen.getByText(/Let AI handle eligible fines automatically while keeping you in control/i)).toBeInTheDocument();
-    expect(screen.getByText(/Diya Joshi/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/Diya Joshi/i)[0]).toBeInTheDocument();
     expect(screen.getByText(/Single Fine Limit/i)).toBeInTheDocument();
     expect(screen.getByText(/Monthly Spending Limit/i)).toBeInTheDocument();
     expect(screen.getByText(/Why this limit\?/i)).toBeInTheDocument();
@@ -118,7 +118,7 @@ describe('GuardianAutopaySimulator — Production Guardian Control UI', () => {
 
     render(<GuardianAutopaySimulator />);
 
-    expect(await screen.findByText(/Saanvi Bose/i)).toBeInTheDocument();
+    expect((await screen.findAllByText(/Saanvi Bose/i))[0]).toBeInTheDocument();
     expect(screen.getByText(/safe starting default/i)).toBeInTheDocument();
 
     // Expand collapsible section to verify "No returns yet"
